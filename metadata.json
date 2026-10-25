@@ -1,0 +1,6 @@
+{
+  "name": "Ps Ludo Master",
+  "description": "Ps Ludo Master - অফলাইন ও অনলাইন রিয়েল-টাইম লুডু গেম। ২ বনাম ২ কোনাকুনি টিম মোড ও আধুনিক বোর্ড গেমের প্রিমিয়াম অভিজ্ঞতা।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
