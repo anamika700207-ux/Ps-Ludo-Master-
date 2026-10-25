@@ -3,6 +3,7 @@ import { GameMode, PlayerColor, Language } from '../types/ludo';
 import { TRANSLATIONS, COLOR_CONFIG } from '../utils/ludoConstants';
 import { sounds } from '../utils/soundEffects';
 import { Users, Bot, Globe, Volume2, VolumeX, BookOpen, Sparkles, Shield, UserCheck } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface TitleScreenProps {
   mode: GameMode;
@@ -96,6 +97,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {/* PWA Mobile Install Button */}
+          <PWAInstallButton lang={lang} variant="button" />
+
           {/* Language Toggle */}
           <button
             onClick={() => {
@@ -425,6 +429,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             </div>
           </div>
         </div>
+
+        {/* PWA Mobile App Download & Install Banner */}
+        <PWAInstallButton lang={lang} variant="banner" />
 
         {/* Primary Start CTA Button */}
         <button

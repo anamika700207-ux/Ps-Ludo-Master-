@@ -39,6 +39,8 @@ import { VictoryModal } from './components/VictoryModal';
 import { RulesModal } from './components/RulesModal';
 import { SplashScreen } from './components/SplashScreen';
 import { OnlineNoticeModal } from './components/OnlineNoticeModal';
+import { OfflineIndicator } from './components/OfflineIndicator';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import {
   Volume2,
   VolumeX,
@@ -947,6 +949,9 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950">
+      {/* Offline connectivity indicator */}
+      <OfflineIndicator lang={lang} />
+
       {/* Viewport Render Router */}
       {screen === 'TITLE_MENU' ? (
         <TitleScreen
