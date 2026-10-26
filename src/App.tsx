@@ -11,10 +11,13 @@ import {
   GameMode,
   GameScreen,
   Language,
+  AppTheme,
   QuickReaction,
   OnlineRoomState,
   HoppingTokenInfo,
   TeamId,
+  CareerStats,
+  SavedGameState,
 } from './types/ludo';
 import {
   COLOR_CONFIG,
@@ -25,6 +28,7 @@ import {
   getTeammateColor,
   isSameTeam,
   TEAM_CONFIG,
+  isSafePosition,
 } from './utils/ludoConstants';
 import { sounds } from './utils/soundEffects';
 import { getMovableTokenIds, pickBestBotMove } from './utils/botAi';
@@ -37,22 +41,28 @@ import { OnlineLobbyModal } from './components/OnlineLobbyModal';
 import { QuickChatBar } from './components/QuickChatBar';
 import { VictoryModal } from './components/VictoryModal';
 import { RulesModal } from './components/RulesModal';
+import { CareerStatsModal } from './components/CareerStatsModal';
 import { SplashScreen } from './components/SplashScreen';
 import { OnlineNoticeModal } from './components/OnlineNoticeModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { SettingsModal } from './components/SettingsModal';
+import { InGameMusicWidget } from './components/InGameMusicWidget';
+import { useCustomMusic } from './context/CustomMusicContext';
+import { triggerHaptic, setHapticsEnabled } from './utils/haptics';
 import {
-  Volume2,
-  VolumeX,
   BookOpen,
   ArrowLeft,
   Users,
   Bot as BotIcon,
   Globe,
   RotateCcw,
+  Settings,
 } from 'lucide-react';
 
 export default function App() {
+  const { isPlaying: isCustomMusicPlaying } = useCustomMusic();
+
   // App Navigation & Setup
   const [screen, setScreen] = useState<GameScreen>('TITLE_MENU');
   const [mode, setMode] = useState<GameMode>('offline_bot');
@@ -62,13 +72,159 @@ export default function App() {
   const [winningTeamId, setWinningTeamId] = useState<TeamId | null>(null);
   const [myColor, setMyColor] = useState<PlayerColor>('blue');
   const [playerName, setPlayerName] = useState('Player 1');
-  const [lang, setLang] = useState<Language>('en'); // Default to English as requested
+  const [lang, setLang] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem('ps_ludo_lang_v1');
+      if (saved === 'bn' || saved === 'en') return saved;
+    } catch {}
+    return 'en';
+  });
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [bgmEnabled, setBgmEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('ludo_bgm_enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [isOnlineModalOpen, setIsOnlineModalOpen] = useState(false);
   const [isOnlineNoticeOpen, setIsOnlineNoticeOpen] = useState(false);
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Splash Screen State (Initial App Launch & Pre-Game Intro)
+  // Mobile Settings: Vibration, Bundle Move, Colorblind, and Theme
+  const [vibrationEnabled, setVibrationEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('ps_ludo_vibration_v1');
+      return saved !== null ? saved === 'true' : true;
+    } catch {}
+    return true;
+  });
+  const [bundleMove, setBundleMove] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('ps_ludo_bundle_move');
+      return saved !== null ? saved === 'true' : true;
+    } catch {}
+    return true;
+  });
+  const [colorblindMode, setColorblindMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('ps_ludo_colorblind');
+      return saved === 'true';
+    } catch {}
+    return false;
+  });
+  const [theme, setTheme] = useState<AppTheme>(() => {
+    try {
+      const saved = localStorage.getItem('ps_ludo_theme_v1');
+      if (saved === 'night' || saved === 'light' || saved === 'neon') return saved;
+    } catch {}
+    return 'night';
+  });
+
+  const handleSetLang = useCallback((newLang: Language) => {
+    setLang(newLang);
+    try {
+      localStorage.setItem('ps_ludo_lang_v1', newLang);
+    } catch {}
+  }, []);
+
+  const handleSetTheme = useCallback((newTheme: AppTheme) => {
+    setTheme(newTheme);
+    try {
+      localStorage.setItem('ps_ludo_theme_v1', newTheme);
+    } catch {}
+  }, []);
+
+  const handleSetVibration = useCallback((enabled: boolean) => {
+    setVibrationEnabled(enabled);
+    setHapticsEnabled(enabled);
+  }, []);
+
+  const handleSetBundleMove = useCallback((enabled: boolean) => {
+    setBundleMove(enabled);
+    try {
+      localStorage.setItem('ps_ludo_bundle_move', String(enabled));
+    } catch {}
+  }, []);
+
+  const handleSetColorblindMode = useCallback((enabled: boolean) => {
+    setColorblindMode(enabled);
+    try {
+      localStorage.setItem('ps_ludo_colorblind', String(enabled));
+    } catch {}
+  }, []);
+
+  // Career Stats & Match History (User requirement 3: Saved on phone/localStorage)
+  const [hasSavedGame, setHasSavedGame] = useState(false);
+  const [careerStats, setCareerStats] = useState<CareerStats>(() => {
+    try {
+      const raw = localStorage.getItem('ps_ludo_career_stats_v1');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return {
+      totalMatches: 0,
+      wins: 0,
+      losses: 0,
+      totalCaptures: 0,
+    };
+  });
+
+  // Current Match Statistics (User requirement 1: Moves & Captures)
+  const [totalMoves, setTotalMoves] = useState(0);
+  const [totalCaptures, setTotalCaptures] = useState(0);
+  const [playerMoves, setPlayerMoves] = useState<Record<PlayerColor, number>>({
+    red: 0,
+    green: 0,
+    yellow: 0,
+    blue: 0,
+  });
+  const [playerCaptures, setPlayerCaptures] = useState<Record<PlayerColor, number>>({
+    red: 0,
+    green: 0,
+    yellow: 0,
+    blue: 0,
+  });
+
+  // Check saved game presence on screen change or initial mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('ps_ludo_saved_game_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.players) && parsed.players.length > 0) {
+          setHasSavedGame(true);
+          return;
+        }
+      }
+    } catch {}
+    setHasSavedGame(false);
+  }, [screen]);
+
+  // Toggle Background Music
+  const handleToggleBgm = useCallback(() => {
+    const next = !bgmEnabled;
+    setBgmEnabled(next);
+    localStorage.setItem('ludo_bgm_enabled', String(next));
+    sounds.setBgmEnabled(next);
+    if (next && screen === 'PLAYING') {
+      sounds.startBgm();
+    } else if (!next) {
+      sounds.stopBgm();
+    }
+  }, [bgmEnabled, screen]);
+
+  // Toggle Sound Effects & Master Audio
+  const handleToggleSound = useCallback(() => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    sounds.setSoundEnabled(next);
+    if (!next) {
+      sounds.stopBgm();
+    } else if (bgmEnabled && screen === 'PLAYING') {
+      sounds.startBgm();
+    }
+  }, [soundEnabled, bgmEnabled, screen]);
+
+  // Splash Screen State (Cinematic 5-Second Intro on App Entry & Game Start)
   const [isSplashActive, setIsSplashActive] = useState(true);
   const [splashConfig, setSplashConfig] = useState<{
     durationSeconds: number;
@@ -76,7 +232,7 @@ export default function App() {
     subtitle?: string;
     onFinishCallback?: () => void;
   }>({
-    durationSeconds: 3.5,
+    durationSeconds: 5,
     title: 'Ps Ludo Master',
     subtitle: 'Loading Ps Ludo Master...',
     onFinishCallback: () => setScreen('TITLE_MENU'),
@@ -95,6 +251,112 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [hoppingInfo, setHoppingInfo] = useState<HoppingTokenInfo | null>(null);
   const [isAnimatingMove, setIsAnimatingMove] = useState(false);
+
+  // User requirement 2: Auto-save match state to localStorage
+  const saveCurrentMatchState = useCallback(() => {
+    if (mode === 'online' || players.length === 0) return;
+    try {
+      const stateToSave: SavedGameState = {
+        players,
+        turnOrder,
+        currentTurnColor,
+        activeMovableColor,
+        diceValue,
+        hasRolled,
+        consecutiveSixes,
+        movableTokenIds,
+        playerCount,
+        mode,
+        isTeamMode,
+        winningTeamId,
+        myColor,
+        playerName,
+        winners,
+        statusMessage,
+        totalMoves,
+        totalCaptures,
+        playerMoves,
+        playerCaptures,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem('ps_ludo_saved_game_v1', JSON.stringify(stateToSave));
+      setHasSavedGame(true);
+    } catch (err) {
+      console.warn('Failed to save game state:', err);
+    }
+  }, [
+    mode,
+    players,
+    turnOrder,
+    currentTurnColor,
+    activeMovableColor,
+    diceValue,
+    hasRolled,
+    consecutiveSixes,
+    movableTokenIds,
+    playerCount,
+    isTeamMode,
+    winningTeamId,
+    myColor,
+    playerName,
+    winners,
+    statusMessage,
+    totalMoves,
+    totalCaptures,
+    playerMoves,
+    playerCaptures,
+  ]);
+
+  // Auto-save active offline game whenever state changes
+  useEffect(() => {
+    if (screen === 'PLAYING' && mode !== 'online' && players.length > 0 && winners.length === 0) {
+      saveCurrentMatchState();
+    }
+  }, [screen, mode, players, currentTurnColor, diceValue, hasRolled, saveCurrentMatchState, winners.length]);
+
+  // Resume saved game from localStorage
+  const handleResumeGame = useCallback(() => {
+    try {
+      const saved = localStorage.getItem('ps_ludo_saved_game_v1');
+      if (!saved) return;
+      const data: SavedGameState = JSON.parse(saved);
+      if (!data || !data.players || data.players.length === 0) return;
+
+      setPlayers(data.players);
+      setTurnOrder(data.turnOrder);
+      setCurrentTurnColor(data.currentTurnColor);
+      setActiveMovableColor(data.activeMovableColor);
+      setDiceValue(data.diceValue);
+      setIsRolling(false);
+      setHasRolled(data.hasRolled);
+      setConsecutiveSixes(data.consecutiveSixes || 0);
+      setMovableTokenIds(data.movableTokenIds || []);
+      setPlayerCount(data.playerCount || 4);
+      setMode(data.mode || 'offline_bot');
+      setIsTeamMode(data.isTeamMode !== undefined ? data.isTeamMode : true);
+      setWinningTeamId(data.winningTeamId || null);
+      setMyColor(data.myColor || 'blue');
+      setPlayerName(data.playerName || 'Player 1');
+      setWinners(data.winners || []);
+      setStatusMessage(data.statusMessage || (lang === 'bn' ? 'খেলা পুনরায় শুরু হলো!' : 'Match resumed!'));
+      setTotalMoves(data.totalMoves || 0);
+      setTotalCaptures(data.totalCaptures || 0);
+      setPlayerMoves(data.playerMoves || { red: 0, green: 0, yellow: 0, blue: 0 });
+      setPlayerCaptures(data.playerCaptures || { red: 0, green: 0, yellow: 0, blue: 0 });
+
+      setScreen('PLAYING');
+      if (bgmEnabled && soundEnabled) {
+        sounds.startBgm();
+      }
+    } catch (err) {
+      console.error('Failed to resume match:', err);
+    }
+  }, [lang, bgmEnabled, soundEnabled]);
+
+  const handleDiscardSavedGame = useCallback(() => {
+    localStorage.removeItem('ps_ludo_saved_game_v1');
+    setHasSavedGame(false);
+  }, []);
 
   // Quick Reactions & Chat
   const [activeReactions, setActiveReactions] = useState<QuickReaction[]>([]);
@@ -180,6 +442,12 @@ export default function App() {
     setConsecutiveSixes(0);
     setMovableTokenIds([]);
     setWinners([]);
+    setTotalMoves(0);
+    setTotalCaptures(0);
+    setPlayerMoves({ red: 0, green: 0, yellow: 0, blue: 0 });
+    setPlayerCaptures({ red: 0, green: 0, yellow: 0, blue: 0 });
+    localStorage.removeItem('ps_ludo_saved_game_v1');
+    setHasSavedGame(false);
     setStatusMessage(
       isTeamMode && playerCount === 4
         ? lang === 'bn'
@@ -190,17 +458,27 @@ export default function App() {
         : 'Game started! Roll the dice.'
     );
 
-    // Show SharifToonix splash screen for 2.5 seconds before entering the board
+    // Show 5-second intro when starting game per user request
     setSplashConfig({
-      durationSeconds: 2.5,
-      title: 'SharifToonix',
-      subtitle: lang === 'bn' ? 'ম্যাচ শুরু হচ্ছে... প্রস্তুত হন!' : 'Match Starting... Get Ready!',
+      durationSeconds: 5,
+      title: 'Ps Ludo Master',
+      subtitle:
+        isTeamMode && playerCount === 4
+          ? lang === 'bn'
+            ? '২ বনাম ২ টিম ম্যাচ শুরু হচ্ছে... প্রস্তুত হন!'
+            : '2v2 Team Match Starting... Get Ready!'
+          : lang === 'bn'
+          ? 'ম্যাচ শুরু হচ্ছে... প্রস্তুত হন!'
+          : 'Match Starting... Get Ready!',
       onFinishCallback: () => {
         setScreen('PLAYING');
+        if (bgmEnabled && soundEnabled) {
+          sounds.startBgm();
+        }
       },
     });
     setIsSplashActive(true);
-  }, [playerCount, myColor, mode, playerName, lang]);
+  }, [playerCount, myColor, mode, playerName, lang, isTeamMode, bgmEnabled, soundEnabled]);
 
   // Connect WebSocket for Online Mode
   const connectWebSocket = useCallback(() => {
@@ -234,8 +512,8 @@ export default function App() {
 
             // Show SharifToonix splash screen before entering the board
             setSplashConfig({
-              durationSeconds: 2.5,
-              title: 'SharifToonix',
+              durationSeconds: 5,
+              title: 'Ps Ludo Master',
               subtitle: lang === 'bn' ? 'অনলাইন ম্যাচ শুরু হচ্ছে... প্রস্তুত হন!' : 'Online Match Starting... Get Ready!',
               onFinishCallback: () => {
                 setScreen('PLAYING');
@@ -423,10 +701,69 @@ export default function App() {
     [players, lang, isTeamMode]
   );
 
+  // User requirement 1 & 3: Match finish handler, crown celebration, and career stats storage
+  const handleMatchVictory = useCallback(
+    (winningColors: PlayerColor[], teamWinId?: TeamId | null) => {
+      // Clear saved ongoing match
+      localStorage.removeItem('ps_ludo_saved_game_v1');
+      setHasSavedGame(false);
+
+      const isUserWin =
+        isTeamMode && teamWinId
+          ? (teamWinId === 'team_red_yellow' && (myColor === 'red' || myColor === 'yellow')) ||
+            (teamWinId === 'team_blue_green' && (myColor === 'blue' || myColor === 'green'))
+          : winningColors[0] === myColor;
+
+      const topWinnerPlayer = players.find((p) => p.color === winningColors[0]);
+      const teamObj = teamWinId ? TEAM_CONFIG[teamWinId] : null;
+      const winnerName =
+        isTeamMode && teamObj
+          ? lang === 'bn'
+            ? teamObj.nameBn
+            : teamObj.nameEn
+          : topWinnerPlayer?.name || COLOR_CONFIG[winningColors[0]]?.name || 'Winner';
+
+      setCareerStats((prev) => {
+        const updated: CareerStats = {
+          totalMatches: (prev.totalMatches || 0) + 1,
+          wins: (prev.wins || 0) + (isUserWin ? 1 : 0),
+          losses: (prev.losses || 0) + (isUserWin ? 0 : 1),
+          totalCaptures: (prev.totalCaptures || 0) + totalCaptures,
+          lastMatch: {
+            date: new Date().toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            winnerName,
+            winnerColor: winningColors[0] || 'red',
+            isUserWinner: isUserWin,
+            mode,
+            totalMoves: totalMoves + 1,
+            totalCaptures,
+            isTeamMode,
+            winningTeamName: teamObj ? (lang === 'bn' ? teamObj.nameBn : teamObj.nameEn) : undefined,
+          },
+        };
+        try {
+          localStorage.setItem('ps_ludo_career_stats_v1', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      sounds.playCelebration();
+      setTimeout(() => setScreen('VICTORY'), 800);
+    },
+    [isTeamMode, myColor, players, lang, totalCaptures, totalMoves, mode]
+  );
+
   // Offline Dice Roll
   const handleOfflineRoll = useCallback(() => {
     if (isRolling || hasRolled) return;
 
+    triggerHaptic('medium');
+    sounds.playDiceRoll();
     setIsRolling(true);
     setDiceValue(null);
 
@@ -435,6 +772,7 @@ export default function App() {
       setDiceValue(rolled);
       setIsRolling(false);
       setHasRolled(true);
+      triggerHaptic(rolled === 6 ? 'success' : 'light');
 
       const nextSixes = rolled === 6 ? consecutiveSixes + 1 : 0;
       setConsecutiveSixes(nextSixes);
@@ -584,14 +922,20 @@ export default function App() {
       let capturedInfo: { color: PlayerColor; tokenId: number } | null = null;
       let reachedHome = nextStep === 56;
 
+      // User requirement 1: Record total moves and player moves
+      setTotalMoves((m) => m + 1);
+      setPlayerMoves((pm) => ({ ...pm, [moverColor]: (pm[moverColor] || 0) + 1 }));
+
+      // User requirement 4: কোনো গুটি স্টার হলে বা সেভ হলে সাথে সাথে সেভ সাউন্ড হবে।
+      // Check if arrival position is a star cell, safe circle, or safe home stretch
+      const isSafeCell = isSafePosition(moverColor, nextStep);
+
       if (reachedHome) {
+        triggerHaptic('success');
         sounds.playHomeFanfare();
-      } else if (nextStep > 0 && nextStep <= 50) {
-        const myTrackIdx = (COLOR_START_INDEX[moverColor] + nextStep) % 52;
-        const isSafe = SAFE_TRACK_INDICES.includes(myTrackIdx);
-        if (isSafe) {
-          sounds.playSafeChime();
-        }
+      } else if (isSafeCell) {
+        triggerHaptic('save');
+        sounds.playSafeChime();
       }
 
       // Check captures on perimeter track (step 0..50)
@@ -620,6 +964,7 @@ export default function App() {
                 const oppTrackIdx = (COLOR_START_INDEX[p.color] + oppToken.step) % 52;
                 if (oppTrackIdx === myTrackIdx) {
                   capturedInfo = { color: p.color, tokenId: oppToken.id };
+                  triggerHaptic('capture');
                   sounds.playCaptureSmash();
                   return { ...oppToken, step: -1 };
                 }
@@ -649,6 +994,12 @@ export default function App() {
         });
       }
 
+      // User requirement 1 & 3: Update capture stats
+      if (capturedInfo !== null) {
+        setTotalCaptures((c) => c + 1);
+        setPlayerCaptures((pc) => ({ ...pc, [moverColor]: (pc[moverColor] || 0) + 1 }));
+      }
+
       setPlayers(currentUpdatedPlayers);
 
       // Check win condition & match ending rules
@@ -664,14 +1015,12 @@ export default function App() {
         if (redHome + yellowHome === 8) {
           setWinningTeamId('team_red_yellow');
           setWinners(['red', 'yellow']);
-          sounds.playCelebration();
-          setTimeout(() => setScreen('VICTORY'), 800);
+          handleMatchVictory(['red', 'yellow'], 'team_red_yellow');
           return;
         } else if (blueHome + greenHome === 8) {
           setWinningTeamId('team_blue_green');
           setWinners(['blue', 'green']);
-          sounds.playCelebration();
-          setTimeout(() => setScreen('VICTORY'), 800);
+          handleMatchVictory(['blue', 'green'], 'team_blue_green');
           return;
         }
       } else {
@@ -690,8 +1039,7 @@ export default function App() {
             // 4 Players: 1st, 2nd, 3rd finish -> win, 4th player loses immediately.
             const requiredWinnersToFinish = currentUpdatedPlayers.length - 1;
             if (updatedWinners.length >= requiredWinnersToFinish) {
-              sounds.playCelebration();
-              setTimeout(() => setScreen('VICTORY'), 800);
+              handleMatchVictory(updatedWinners);
               return;
             }
           }
@@ -927,6 +1275,26 @@ export default function App() {
     }
   };
 
+  // Continuous Ludo Background Music (BGM) while playing match
+  useEffect(() => {
+    if (
+      screen === 'PLAYING' &&
+      soundEnabled &&
+      bgmEnabled &&
+      winners.length === 0 &&
+      !winningTeamId &&
+      !isCustomMusicPlaying // Give priority to user's custom music if playing
+    ) {
+      sounds.startBgm();
+    } else {
+      sounds.stopBgm();
+    }
+
+    return () => {
+      sounds.stopBgm();
+    };
+  }, [screen, soundEnabled, bgmEnabled, winners.length, winningTeamId, isCustomMusicPlaying]);
+
   // Active player info
   const activePlayer = players.find((p) => p.color === currentTurnColor);
   const isMyTurn =
@@ -948,7 +1316,7 @@ export default function App() {
     (players.find((p) => p.color === 'green')?.tokensHome || 0);
 
   return (
-    <div className="relative min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950">
+    <div className={`relative min-h-screen w-full theme-${theme} bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950`}>
       {/* Offline connectivity indicator */}
       <OfflineIndicator lang={lang} />
 
@@ -966,17 +1334,24 @@ export default function App() {
           playerName={playerName}
           setPlayerName={setPlayerName}
           lang={lang}
-          setLang={setLang}
+          setLang={handleSetLang}
           soundEnabled={soundEnabled}
           setSoundEnabled={setSoundEnabled}
+          bgmEnabled={bgmEnabled}
+          onToggleBgm={handleToggleBgm}
           onStartOffline={startOfflineGame}
+          hasSavedGame={hasSavedGame}
+          onResumeGame={handleResumeGame}
+          onDiscardSavedGame={handleDiscardSavedGame}
+          onOpenStats={() => setIsStatsModalOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenOnlineModal={() => {
             setIsOnlineNoticeOpen(true);
           }}
           onOpenRules={() => setIsRulesOpen(true)}
           onOpenIntro={() => {
             setSplashConfig({
-              durationSeconds: 3.5,
+              durationSeconds: 5,
               title: 'Ps Ludo Master',
               subtitle: lang === 'bn' ? 'Ps Ludo Master প্রেজেন্টস' : 'Ps Ludo Master Presents',
               onFinishCallback: () => {},
@@ -992,7 +1367,16 @@ export default function App() {
             <button
               onClick={() => {
                 sounds.playClick();
-                if (confirm(t.confirmLeave)) {
+                // User requirement 2: Mid-game match is preserved!
+                if (
+                  confirm(
+                    lang === 'bn'
+                      ? 'খেলা থেকে বের হতে চান? আপনার বর্তমান ম্যাচ সেভ থাকবে এবং পরে চালিয়ে যেতে পারবেন।'
+                      : 'Leave match? Your match will be saved and you can resume anytime.'
+                  )
+                ) {
+                  saveCurrentMatchState();
+                  sounds.stopBgm();
                   setScreen('TITLE_MENU');
                 }
               }}
@@ -1013,22 +1397,30 @@ export default function App() {
               </span>
             </div>
 
-            {/* Right Buttons: Chat & Sound */}
+            {/* Right Buttons: Music, Chat & Settings */}
             <div className="flex items-center gap-1.5">
+              <InGameMusicWidget
+                lang={lang}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+              />
+
               <QuickChatBar
                 onSendReaction={handleSendReaction}
                 lang={lang}
                 activeReactions={activeReactions}
               />
+
+              {/* In-Game Settings Button */}
               <button
                 onClick={() => {
-                  const next = !soundEnabled;
-                  setSoundEnabled(next);
-                  sounds.setSoundEnabled(next);
+                  triggerHaptic('light');
+                  sounds.playClick();
+                  setIsSettingsOpen(true);
                 }}
-                className="w-9 h-9 rounded-full bg-slate-900/80 border border-white/20 flex items-center justify-center text-white shadow hover:bg-slate-800 transition"
+                title={lang === 'bn' ? 'সেটিংস' : 'Settings'}
+                className="w-9 h-9 rounded-full bg-purple-950/80 border border-purple-500/40 flex items-center justify-center text-purple-200 shadow hover:bg-purple-900/80 hover:text-white transition active:scale-95"
               >
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+                <Settings className="w-4 h-4 text-purple-300" />
               </button>
             </div>
           </header>
@@ -1194,7 +1586,27 @@ export default function App() {
         lang={lang}
       />
 
-      {/* Victory Celebration Modal */}
+      {/* Career Stats Modal (User requirement 3: View stats stored on phone) */}
+      <CareerStatsModal
+        isOpen={isStatsModalOpen}
+        onClose={() => setIsStatsModalOpen(false)}
+        lang={lang}
+        stats={careerStats}
+        onResetStats={() => {
+          const reset: CareerStats = {
+            totalMatches: 0,
+            wins: 0,
+            losses: 0,
+            totalCaptures: 0,
+          };
+          setCareerStats(reset);
+          try {
+            localStorage.removeItem('ps_ludo_career_stats_v1');
+          } catch {}
+        }}
+      />
+
+      {/* Victory Celebration Modal (User requirement 1: Winner Name, Crown animation, Moves & Captures) */}
       <VictoryModal
         isOpen={screen === 'VICTORY'}
         winners={winners}
@@ -1202,6 +1614,8 @@ export default function App() {
         lang={lang}
         isTeamMode={isTeamMode}
         winningTeamId={winningTeamId}
+        totalMoves={totalMoves}
+        totalCaptures={totalCaptures}
         onRematch={() => {
           setScreen('PLAYING');
           handleRematch();
@@ -1226,6 +1640,38 @@ export default function App() {
           }}
         />
       )}
+
+      {/* High-Fidelity Settings Screen (Matching user screenshot) */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        lang={lang}
+        setLang={handleSetLang}
+        soundEnabled={soundEnabled}
+        setSoundEnabled={(val) => {
+          setSoundEnabled(val);
+          sounds.setSoundEnabled(val);
+        }}
+        bgmEnabled={bgmEnabled}
+        setBgmEnabled={(val) => {
+          setBgmEnabled(val);
+          sounds.setBgmEnabled(val);
+          localStorage.setItem('ludo_bgm_enabled', String(val));
+          if (val && screen === 'PLAYING') {
+            sounds.startBgm();
+          } else if (!val) {
+            sounds.stopBgm();
+          }
+        }}
+        vibrationEnabled={vibrationEnabled}
+        setVibrationEnabled={handleSetVibration}
+        bundleMove={bundleMove}
+        setBundleMove={handleSetBundleMove}
+        colorblindMode={colorblindMode}
+        setColorblindMode={handleSetColorblindMode}
+        theme={theme}
+        setTheme={handleSetTheme}
+      />
     </div>
   );
 }

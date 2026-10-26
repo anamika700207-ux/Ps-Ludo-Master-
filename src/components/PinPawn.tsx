@@ -10,7 +10,7 @@ interface PinPawnProps {
 
 export const PinPawn: React.FC<PinPawnProps> = ({
   color,
-  size = 26, // Balanced size: neither too big nor too small
+  size = 20, // Compact, refined circular token
   className = '',
   isHopping = false,
 }) => {

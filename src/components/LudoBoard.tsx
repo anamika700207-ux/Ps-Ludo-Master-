@@ -76,24 +76,45 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
     cellGroups.get(cellKey)!.push(pt);
   });
 
-  // Calculate micro offsets for multiple tokens in the same cell
+  // Calculate micro offsets & dynamic reduction scaling when multiple tokens share the same cell
   const getOffset = (group: PlacedToken[], index: number): { x: number; y: number; scale: number } => {
-    if (group.length <= 1) return { x: 0, y: 0, scale: 1 };
+    // Single token: compact standard scale
+    if (group.length <= 1) return { x: 0, y: 0, scale: 1.0 };
+
+    // 2 tokens: noticeably smaller, positioned diagonally so both are clear
     if (group.length === 2) {
-      return index === 0 ? { x: -5, y: -5, scale: 0.85 } : { x: 5, y: 5, scale: 0.85 };
+      return index === 0
+        ? { x: -6, y: -6, scale: 0.70 }
+        : { x: 6, y: 6, scale: 0.70 };
     }
+
+    // 3 tokens: even smaller in a neat triangle formation
     if (group.length === 3) {
-      if (index === 0) return { x: 0, y: -6, scale: 0.78 };
-      if (index === 1) return { x: -6, y: 5, scale: 0.78 };
-      return { x: 6, y: 5, scale: 0.78 };
+      if (index === 0) return { x: 0, y: -6.5, scale: 0.58 };
+      if (index === 1) return { x: -6.5, y: 5.5, scale: 0.58 };
+      return { x: 6.5, y: 5.5, scale: 0.58 };
     }
-    const offsets = [
-      { x: -5, y: -5 },
-      { x: 5, y: -5 },
-      { x: -5, y: 5 },
-      { x: 5, y: 5 },
-    ];
-    return { ...offsets[index % 4], scale: 0.75 };
+
+    // 4 tokens: 2x2 grid, significantly smaller to fit cleanly inside the cell
+    if (group.length === 4) {
+      const offsets = [
+        { x: -6, y: -6 },
+        { x: 6, y: -6 },
+        { x: -6, y: 6 },
+        { x: 6, y: 6 },
+      ];
+      return { ...offsets[index % 4], scale: 0.48 };
+    }
+
+    // 5 or more tokens (e.g. crowded safe zone or home goal):
+    // Form a compact ring with micro scale so every token is distinctly visible
+    const angle = (index / group.length) * Math.PI * 2;
+    const radius = 7.5;
+    return {
+      x: Math.round(Math.cos(angle) * radius * 10) / 10,
+      y: Math.round(Math.sin(angle) * radius * 10) / 10,
+      scale: 0.42,
+    };
   };
 
   // Safe track spots with circular ring markers matching the uploaded board photo
@@ -350,16 +371,19 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               hoppingInfo?.color === pt.player.color &&
               hoppingInfo?.tokenId === pt.token.id;
 
+            // User requirement 5: The player whose turn it is has slightly larger tokens than other players
+            const isTurnPlayer = pt.player.color === (movableColor || activeColor);
+            const turnMultiplier = isTurnPlayer ? 1.20 : 1.0;
+            const finalScale = isHopping ? 1.32 : Math.round(offset.scale * turnMultiplier * 100) / 100;
+
             return (
               <div
                 key={pt.key}
                 style={{
                   left: `${leftPercent}%`,
                   top: `${topPercent}%`,
-                  transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${
-                    isHopping ? 1.25 : offset.scale
-                  })`,
-                  zIndex: isHopping ? 70 : pt.isMovable ? 40 : 20 + idx,
+                  transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${finalScale})`,
+                  zIndex: isHopping ? 70 : pt.isMovable ? 45 : isTurnPlayer ? 35 + idx : 20 + idx,
                 }}
                 className={`absolute transition-all duration-300 ease-out pointer-events-auto ${
                   pt.isMovable ? 'cursor-pointer hover:scale-125' : ''
@@ -375,10 +399,15 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                   <span className="absolute -inset-1 rounded-full bg-amber-400 opacity-75 animate-ping pointer-events-none" />
                 )}
 
-                {/* THE PIN PAWN */}
+                {/* Subtle turn highlight halo for active player's tokens */}
+                {isTurnPlayer && !pt.isMovable && !isHopping && (
+                  <span className="absolute -inset-0.5 rounded-full ring-1 ring-amber-300/40 pointer-events-none" />
+                )}
+
+                {/* THE PIN PAWN (Noticeably smaller compact size, active player scaled 1.2x larger) */}
                 <PinPawn
                   color={pt.player.color}
-                  size={30}
+                  size={20}
                   isHopping={isHopping}
                   className={pt.isMovable ? 'animate-bounce' : ''}
                 />

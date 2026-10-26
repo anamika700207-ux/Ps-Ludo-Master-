@@ -95,3 +95,61 @@
     0 0 25px rgba(245, 158, 11, 0.2);
 }
 
+/* Theme: Night (Default) */
+.theme-night {
+  --bg-primary: #0a0718;
+  --bg-surface: #16112a;
+}
+
+/* Theme: Light */
+.theme-light {
+  --bg-primary: #f8fafc;
+  --bg-surface: #ffffff;
+}
+
+.theme-light .ludo-screen-bg {
+  background-color: #0284c7;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(125, 211, 252, 0.45) 0%, rgba(2, 132, 199, 0.95) 100%),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.08) 0px,
+      rgba(255, 255, 255, 0.08) 20px,
+      transparent 20px,
+      transparent 40px
+    );
+}
+
+.theme-light .title-screen-bg {
+  background: radial-gradient(circle at top, #e0f2fe 0%, #bae6fd 40%, #7dd3fc 100%) !important;
+  color: #0f172a !important;
+}
+
+/* Theme: Neon */
+.theme-neon {
+  --bg-primary: #050510;
+  --bg-surface: #0f0a24;
+}
+
+.theme-neon .ludo-screen-bg {
+  background-color: #0b071e;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(217, 70, 239, 0.25) 0%, rgba(10, 5, 25, 0.98) 100%),
+    repeating-linear-gradient(
+      45deg,
+      rgba(6, 182, 212, 0.08) 0px,
+      rgba(6, 182, 212, 0.08) 20px,
+      transparent 20px,
+      transparent 40px
+    );
+}
+
+.theme-neon .ludo-board-frame {
+  box-shadow: 
+    0 0 0 3px #06b6d4,
+    0 0 0 6px #d946ef,
+    0 0 0 8px #0f172a,
+    0 0 35px rgba(217, 70, 239, 0.6),
+    0 0 60px rgba(6, 182, 212, 0.4);
+}
+

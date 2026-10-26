@@ -51,11 +51,17 @@ export interface MoveLog {
   timestamp: number;
 }
 
+export type AppTheme = 'night' | 'light' | 'neon';
+
 export interface GameSettings {
   language: Language;
   soundEnabled: boolean;
   musicEnabled: boolean;
-  botSpeed: 'fast' | 'normal';
+  vibrationEnabled: boolean;
+  bundleMove: boolean;
+  colorblindMode: boolean;
+  theme: AppTheme;
+  botSpeed?: 'fast' | 'normal';
 }
 
 export interface OnlineRoomState {
@@ -80,4 +86,53 @@ export interface OnlineRoomState {
   tokens: Record<PlayerColor, Token[]>;
   winners: PlayerColor[];
   turnDeadline: number;
+}
+
+export interface MatchStats {
+  totalMoves: number;
+  totalCaptures: number;
+  playerMoves: Record<PlayerColor, number>;
+  playerCaptures: Record<PlayerColor, number>;
+}
+
+export interface SavedGameState {
+  players: Player[];
+  turnOrder: PlayerColor[];
+  currentTurnColor: PlayerColor;
+  activeMovableColor: PlayerColor | null;
+  diceValue: number | null;
+  hasRolled: boolean;
+  consecutiveSixes: number;
+  movableTokenIds: number[];
+  playerCount: 2 | 3 | 4;
+  mode: GameMode;
+  isTeamMode: boolean;
+  winningTeamId: TeamId | null;
+  myColor: PlayerColor;
+  playerName: string;
+  winners: PlayerColor[];
+  statusMessage: string;
+  totalMoves: number;
+  totalCaptures: number;
+  playerMoves: Record<PlayerColor, number>;
+  playerCaptures: Record<PlayerColor, number>;
+  savedAt: number;
+}
+
+export interface CareerStats {
+  totalMatches: number;
+  wins: number;
+  losses: number;
+  totalCaptures: number;
+  lastMatch?: {
+    date: string;
+    winnerName: string;
+    winnerColor: PlayerColor;
+    isUserWinner: boolean;
+    mode: GameMode;
+    totalMoves: number;
+    totalCaptures: number;
+    isTeamMode?: boolean;
+    winningTeamName?: string;
+  };
 }

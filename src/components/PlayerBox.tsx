@@ -113,7 +113,7 @@ export const PlayerBox: React.FC<PlayerBoxProps> = ({
           <>
             {/* Left Compartment: Avatar / PinPawn */}
             <div className="w-11 h-12 sm:w-14 sm:h-15 rounded-lg sm:rounded-xl bg-gradient-to-b from-[#0058b8] to-[#003e85] border border-[#268eff] flex items-center justify-center shadow-inner relative overflow-hidden">
-              <PinPawn color={player.color} size={28} />
+              <PinPawn color={player.color} size={24} />
               {isTeamMode && (
                 <div className="absolute top-0 inset-x-0 bg-black/75 py-0.5 px-0.5 text-center">
                   <span className="text-[7.5px] sm:text-[9px] font-black text-amber-300 whitespace-nowrap">
@@ -149,7 +149,7 @@ export const PlayerBox: React.FC<PlayerBoxProps> = ({
 
             {/* Right Compartment: Avatar / PinPawn */}
             <div className="w-11 h-12 sm:w-14 sm:h-15 rounded-lg sm:rounded-xl bg-gradient-to-b from-[#0058b8] to-[#003e85] border border-[#268eff] flex items-center justify-center shadow-inner relative overflow-hidden">
-              <PinPawn color={player.color} size={28} />
+              <PinPawn color={player.color} size={24} />
               {isTeamMode && (
                 <div className="absolute top-0 inset-x-0 bg-black/75 py-0.5 px-0.5 text-center">
                   <span className="text-[7.5px] sm:text-[9px] font-black text-sky-300 whitespace-nowrap">

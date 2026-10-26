@@ -12,7 +12,7 @@ interface SplashScreenProps {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
-  durationSeconds = 3.5,
+  durationSeconds = 5,
   onComplete,
   lang,
   title,
@@ -23,7 +23,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
-    // Attempt to play intro chime
+    // Only play gentle chime (voiceover disabled per user request)
     sounds.playIntroChime();
 
     const intervalMs = 50;
@@ -44,7 +44,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       }
     }, intervalMs);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+    };
   }, [durationSeconds]);
 
   const handleFinish = () => {
