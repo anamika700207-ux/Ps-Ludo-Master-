@@ -119,20 +119,24 @@ export interface SavedGameState {
   savedAt: number;
 }
 
+export interface MatchRecord {
+  id?: string;
+  date: string;
+  winnerName: string;
+  winnerColor: PlayerColor;
+  isUserWinner: boolean;
+  mode: GameMode;
+  totalMoves: number;
+  totalCaptures: number;
+  isTeamMode?: boolean;
+  winningTeamName?: string;
+}
+
 export interface CareerStats {
   totalMatches: number;
   wins: number;
   losses: number;
   totalCaptures: number;
-  lastMatch?: {
-    date: string;
-    winnerName: string;
-    winnerColor: PlayerColor;
-    isUserWinner: boolean;
-    mode: GameMode;
-    totalMoves: number;
-    totalCaptures: number;
-    isTeamMode?: boolean;
-    winningTeamName?: string;
-  };
+  lastMatch?: MatchRecord;
+  matchHistory?: MatchRecord[];
 }

@@ -56,6 +56,9 @@ export const CustomMusicSection: React.FC<CustomMusicSectionProps> = ({ lang }) 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState<boolean>(false);
+  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
 
   const isBn = lang === 'bn';
 
@@ -96,25 +99,31 @@ export const CustomMusicSection: React.FC<CustomMusicSectionProps> = ({ lang }) 
     else setRepeatMode('all');
   };
 
-  const handleDelete = (id: string, name: string) => {
-    triggerHaptic('light');
-    sounds.playClick();
-    if (window.confirm(isBn ? `"${name}" গানটি ডিলিট করতে চান?` : `Delete "${name}"?`)) {
-      deleteTrackById(id);
+  const handleDirectDelete = async (id: string, name: string) => {
+    try {
+      triggerHaptic('medium');
+      sounds.playCaptureSmash();
+      await deleteTrackById(id);
+      setConfirmDeleteId(null);
+      setDeleteSuccessMessage(
+        isBn ? `"${name}" গানটি সফলভাবে ডিলিট করা হয়েছে!` : `"${name}" deleted successfully!`
+      );
+      setTimeout(() => setDeleteSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Delete error:', err);
     }
   };
 
-  const handleClearAll = () => {
-    triggerHaptic('medium');
-    sounds.playClick();
-    if (
-      window.confirm(
-        isBn
-          ? 'আপনি কি প্লেলিস্টের সব গান মুছে ফেলতে চান?'
-          : 'Are you sure you want to remove all songs?'
-      )
-    ) {
-      clearPlaylist();
+  const handleConfirmClearAll = async () => {
+    try {
+      triggerHaptic('medium');
+      sounds.playCaptureSmash();
+      await clearPlaylist();
+      setConfirmClearAll(false);
+      setDeleteSuccessMessage(isBn ? 'সকল গান সফলভাবে মুছে ফেলা হয়েছে!' : 'All songs cleared!');
+      setTimeout(() => setDeleteSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Clear all error:', err);
     }
   };
 
@@ -186,23 +195,54 @@ export const CustomMusicSection: React.FC<CustomMusicSectionProps> = ({ lang }) 
           </button>
 
           {tracks.length > 0 && (
-            <button
-              type="button"
-              onClick={handleClearAll}
-              title={isBn ? 'সব গান মুছুন' : 'Clear All Songs'}
-              className="px-3 py-3 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 text-xs font-semibold transition active:scale-95 flex items-center gap-1.5"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-red-400" />
-              <span className="hidden sm:inline">{isBn ? 'সব মুছুন' : 'Clear'}</span>
-            </button>
+            confirmClearAll ? (
+              <div className="flex items-center gap-1 shrink-0 animate-in fade-in duration-150">
+                <button
+                  type="button"
+                  onClick={handleConfirmClearAll}
+                  className="px-2.5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition active:scale-95 shadow-md animate-pulse"
+                >
+                  {isBn ? 'নিশ্চিত?' : 'Confirm?'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearAll(false)}
+                  className="px-2 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:text-white"
+                >
+                  {isBn ? 'বাতিল' : 'Cancel'}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  sounds.playClick();
+                  setConfirmClearAll(true);
+                }}
+                title={isBn ? 'সব গান মুছুন' : 'Clear All Songs'}
+                className="px-3 py-3 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 text-xs font-semibold transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span className="hidden sm:inline">{isBn ? 'সব মুছুন' : 'Clear'}</span>
+              </button>
+            )
           )}
         </div>
 
-        {/* Success Alert Banner */}
+        {/* Upload Success Alert Banner */}
         {uploadSuccessMessage && (
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 text-xs animate-in fade-in slide-in-from-top-1">
             <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 animate-spin" />
             <span className="font-semibold">{uploadSuccessMessage}</span>
+          </div>
+        )}
+
+        {/* Delete Success Alert Banner */}
+        {deleteSuccessMessage && (
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-200 text-xs animate-in fade-in slide-in-from-top-1">
+            <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+            <span className="font-semibold">{deleteSuccessMessage}</span>
           </div>
         )}
 
@@ -503,15 +543,38 @@ export const CustomMusicSection: React.FC<CustomMusicSectionProps> = ({ lang }) 
                       </div>
                     </div>
 
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(track.id, track.name)}
-                      title={isBn ? 'গানটি মুছে ফেলুন' : 'Delete song'}
-                      className="p-1.5 rounded-lg text-red-400/70 hover:text-red-300 hover:bg-red-950/60 transition active:scale-95"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {/* Delete button with in-UI confirmation */}
+                    {confirmDeleteId === track.id ? (
+                      <div className="flex items-center gap-1 shrink-0 animate-in fade-in duration-150">
+                        <button
+                          type="button"
+                          onClick={() => handleDirectDelete(track.id, track.name)}
+                          className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold shadow-md active:scale-95 transition"
+                        >
+                          {isBn ? 'মুছুন' : 'Delete'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="p-1 text-slate-400 hover:text-white text-xs cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('light');
+                          sounds.playClick();
+                          setConfirmDeleteId(track.id);
+                        }}
+                        title={isBn ? 'গানটি মুছে ফেলুন' : 'Delete song'}
+                        className="p-1.5 rounded-lg text-red-400/80 hover:text-red-300 hover:bg-red-950/60 transition active:scale-95 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 );
               })}

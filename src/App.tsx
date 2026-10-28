@@ -17,6 +17,7 @@ import {
   HoppingTokenInfo,
   TeamId,
   CareerStats,
+  MatchRecord,
   SavedGameState,
 } from './types/ludo';
 import {
@@ -224,7 +225,7 @@ export default function App() {
     }
   }, [soundEnabled, bgmEnabled, screen]);
 
-  // Splash Screen State (Cinematic 5-Second Intro on App Entry & Game Start)
+  // Splash Screen State (Cinematic 3-Second Intro on App Entry & Game Start)
   const [isSplashActive, setIsSplashActive] = useState(true);
   const [splashConfig, setSplashConfig] = useState<{
     durationSeconds: number;
@@ -232,7 +233,7 @@ export default function App() {
     subtitle?: string;
     onFinishCallback?: () => void;
   }>({
-    durationSeconds: 5,
+    durationSeconds: 3,
     title: 'Ps Ludo Master',
     subtitle: 'Loading Ps Ludo Master...',
     onFinishCallback: () => setScreen('TITLE_MENU'),
@@ -385,28 +386,28 @@ export default function App() {
 
   // Setup Offline Game
   const startOfflineGame = useCallback(() => {
-    const allColors: PlayerColor[] = ['green', 'yellow', 'blue', 'red'];
+    const allColors: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
     let selectedColors: PlayerColor[] = [];
 
     if (playerCount === 2) {
-      selectedColors = ['green', 'blue'];
+      selectedColors = ['blue', 'green'];
       if (myColor === 'red' || myColor === 'yellow') {
         selectedColors = ['red', 'yellow'];
       }
     } else if (playerCount === 3) {
-      selectedColors = ['green', 'yellow', 'red'];
+      selectedColors = ['blue', 'red', 'green'];
       if (!selectedColors.includes(myColor)) {
-        selectedColors = ['green', 'blue', 'red'];
+        selectedColors = ['blue', 'red', 'yellow'];
       }
     } else {
-      selectedColors = ['green', 'yellow', 'blue', 'red'];
+      selectedColors = ['blue', 'red', 'green', 'yellow'];
     }
 
     const defaultNames: Record<PlayerColor, string> = {
-      green: 'Player 1',
-      yellow: 'Player 2',
-      blue: 'Player 3',
-      red: 'Player 4',
+      blue: 'Player 1',
+      red: 'Player 2',
+      green: 'Player 3',
+      yellow: 'Player 4',
     };
 
     const newPlayers: Player[] = selectedColors.map((color) => {
@@ -458,9 +459,9 @@ export default function App() {
         : 'Game started! Roll the dice.'
     );
 
-    // Show 5-second intro when starting game per user request
+    // Show 3-second intro when starting game per user request
     setSplashConfig({
-      durationSeconds: 5,
+      durationSeconds: 3,
       title: 'Ps Ludo Master',
       subtitle:
         isTeamMode && playerCount === 4
@@ -512,7 +513,7 @@ export default function App() {
 
             // Show SharifToonix splash screen before entering the board
             setSplashConfig({
-              durationSeconds: 5,
+              durationSeconds: 3,
               title: 'Ps Ludo Master',
               subtitle: lang === 'bn' ? 'অনলাইন ম্যাচ শুরু হচ্ছে... প্রস্তুত হন!' : 'Online Match Starting... Get Ready!',
               onFinishCallback: () => {
@@ -544,49 +545,30 @@ export default function App() {
                 return cur;
               });
 
+              setHoppingInfo({
+                color,
+                tokenId,
+                count: dice || 1,
+                totalCount: dice || 1,
+              });
+
               if (startStep === -1) {
-                setHoppingInfo({
-                  color,
-                  tokenId,
-                  count: 1,
-                  totalCount: 1,
-                });
                 sounds.playSafeChime();
-                setPlayers((prev) =>
-                  prev.map((p) => {
-                    if (p.color !== color) return p;
-                    return {
-                      ...p,
-                      tokens: p.tokens.map((t) => (t.id === tokenId ? { ...t, step: 0 } : t)),
-                    };
-                  })
-                );
-                await new Promise((r) => setTimeout(r, 320));
               } else {
-                const totalSteps = dice || Math.max(1, newStep - startStep);
-                for (let i = 1; i <= totalSteps; i++) {
-                  const intermediateStep = startStep + i;
-                  setHoppingInfo({
-                    color,
-                    tokenId,
-                    count: i,
-                    totalCount: totalSteps,
-                  });
-                  setPlayers((prev) =>
-                    prev.map((p) => {
-                      if (p.color !== color) return p;
-                      return {
-                        ...p,
-                        tokens: p.tokens.map((t) =>
-                          t.id === tokenId ? { ...t, step: intermediateStep } : t
-                        ),
-                      };
-                    })
-                  );
-                  sounds.playStepHop(i, totalSteps);
-                  await new Promise((r) => setTimeout(r, 220));
-                }
+                sounds.playStepHop(dice || 1, dice || 1);
               }
+
+              setPlayers((prev) =>
+                prev.map((p) => {
+                  if (p.color !== color) return p;
+                  return {
+                    ...p,
+                    tokens: p.tokens.map((t) => (t.id === tokenId ? { ...t, step: newStep } : t)),
+                  };
+                })
+              );
+
+              await new Promise((r) => setTimeout(r, 260));
 
               setHoppingInfo(null);
               setIsAnimatingMove(false);
@@ -723,28 +705,42 @@ export default function App() {
             : teamObj.nameEn
           : topWinnerPlayer?.name || COLOR_CONFIG[winningColors[0]]?.name || 'Winner';
 
+      const newMatchRecord: MatchRecord = {
+        id: `match_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        date: new Date().toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        winnerName,
+        winnerColor: winningColors[0] || 'red',
+        isUserWinner: isUserWin,
+        mode,
+        totalMoves: totalMoves + 1,
+        totalCaptures,
+        isTeamMode,
+        winningTeamName: teamObj ? (lang === 'bn' ? teamObj.nameBn : teamObj.nameEn) : undefined,
+      };
+
       setCareerStats((prev) => {
+        const prevHistory: MatchRecord[] =
+          prev.matchHistory && Array.isArray(prev.matchHistory)
+            ? prev.matchHistory
+            : prev.lastMatch
+            ? [prev.lastMatch]
+            : [];
+
+        // Prepend new match, retaining the last 15 match records
+        const updatedHistory = [newMatchRecord, ...prevHistory].slice(0, 15);
+
         const updated: CareerStats = {
           totalMatches: (prev.totalMatches || 0) + 1,
           wins: (prev.wins || 0) + (isUserWin ? 1 : 0),
           losses: (prev.losses || 0) + (isUserWin ? 0 : 1),
           totalCaptures: (prev.totalCaptures || 0) + totalCaptures,
-          lastMatch: {
-            date: new Date().toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            winnerName,
-            winnerColor: winningColors[0] || 'red',
-            isUserWinner: isUserWin,
-            mode,
-            totalMoves: totalMoves + 1,
-            totalCaptures,
-            isTeamMode,
-            winningTeamName: teamObj ? (lang === 'bn' ? teamObj.nameBn : teamObj.nameEn) : undefined,
-          },
+          lastMatch: newMatchRecord,
+          matchHistory: updatedHistory,
         };
         try {
           localStorage.setItem('ps_ludo_career_stats_v1', JSON.stringify(updated));
@@ -874,51 +870,36 @@ export default function App() {
       const startStep = token.step;
       const stepsToMove = startStep === -1 ? 1 : diceValue;
 
-      // Step-by-step counting animation
+      // Direct smooth movement to target position (no step-by-step counting loop)
+      const nextStep = startStep === -1 ? 0 : startStep + diceValue;
+
+      setHoppingInfo({
+        color: moverColor,
+        tokenId,
+        count: stepsToMove,
+        totalCount: stepsToMove,
+      });
+
       if (startStep === -1) {
-        // Move out of yard onto start track (step 0)
-        setHoppingInfo({
-          color: moverColor,
-          tokenId,
-          count: 1,
-          totalCount: 1,
-        });
-
-        setPlayers((prev) =>
-          prev.map((p) => {
-            if (p.color !== moverColor) return p;
-            return {
-              ...p,
-              tokens: p.tokens.map((t) => (t.id === tokenId ? { ...t, step: 0 } : t)),
-            };
-          })
-        );
         sounds.playSafeChime();
-        await new Promise((r) => setTimeout(r, 220));
       } else {
-        // Direct smooth pawn movement without counting delays
-        const targetStep = startStep + stepsToMove;
-
-        setPlayers((prev) =>
-          prev.map((p) => {
-            if (p.color !== moverColor) return p;
-            return {
-              ...p,
-              tokens: p.tokens.map((t) =>
-                t.id === tokenId ? { ...t, step: targetStep } : t
-              ),
-            };
-          })
-        );
-
-        sounds.playTokenHop();
-        await new Promise((r) => setTimeout(r, 260));
+        sounds.playStepHop(diceValue, diceValue);
       }
+
+      setPlayers((prev) =>
+        prev.map((p) => {
+          if (p.color !== moverColor) return p;
+          return {
+            ...p,
+            tokens: p.tokens.map((t) => (t.id === tokenId ? { ...t, step: nextStep } : t)),
+          };
+        })
+      );
+
+      await new Promise((r) => setTimeout(r, 260));
 
       setHoppingInfo(null);
       setIsAnimatingMove(false);
-
-      const nextStep = startStep === -1 ? 0 : startStep + diceValue;
       let capturedInfo: { color: PlayerColor; tokenId: number } | null = null;
       let reachedHome = nextStep === 56;
 
@@ -1351,7 +1332,7 @@ export default function App() {
           onOpenRules={() => setIsRulesOpen(true)}
           onOpenIntro={() => {
             setSplashConfig({
-              durationSeconds: 5,
+              durationSeconds: 3,
               title: 'Ps Ludo Master',
               subtitle: lang === 'bn' ? 'Ps Ludo Master প্রেজেন্টস' : 'Ps Ludo Master Presents',
               onFinishCallback: () => {},
@@ -1456,8 +1437,22 @@ export default function App() {
 
           {/* Main Table Arena Matching Screenshot */}
           <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[500px] mx-auto my-auto py-1">
-            {/* Top Row: Green on Left (Top-Left House), Yellow on Right (Top-Right House) */}
+            {/* Top Row: Red on Left (Top-Left House), Green on Right (Top-Right House) */}
             <div className="w-full flex items-center justify-between mb-2 px-1">
+              {players.find((p) => p.color === 'red') ? (
+                <PlayerBox
+                  player={players.find((p) => p.color === 'red')!}
+                  isActive={currentTurnColor === 'red'}
+                  diceValue={currentTurnColor === 'red' ? diceValue : null}
+                  isRolling={isRolling}
+                  canRoll={canRollNow && currentTurnColor === 'red'}
+                  onRoll={handleRoll}
+                  orientation="left"
+                  playerName="Player 2"
+                  isTeamMode={isTeamMode}
+                />
+              ) : <div />}
+
               {players.find((p) => p.color === 'green') ? (
                 <PlayerBox
                   player={players.find((p) => p.color === 'green')!}
@@ -1466,22 +1461,8 @@ export default function App() {
                   isRolling={isRolling}
                   canRoll={canRollNow && currentTurnColor === 'green'}
                   onRoll={handleRoll}
-                  orientation="left"
-                  playerName="Player 1"
-                  isTeamMode={isTeamMode}
-                />
-              ) : <div />}
-
-              {players.find((p) => p.color === 'yellow') ? (
-                <PlayerBox
-                  player={players.find((p) => p.color === 'yellow')!}
-                  isActive={currentTurnColor === 'yellow'}
-                  diceValue={currentTurnColor === 'yellow' ? diceValue : null}
-                  isRolling={isRolling}
-                  canRoll={canRollNow && currentTurnColor === 'yellow'}
-                  onRoll={handleRoll}
                   orientation="right"
-                  playerName="Player 2"
+                  playerName="Player 3"
                   isTeamMode={isTeamMode}
                 />
               ) : <div />}
@@ -1502,22 +1483,8 @@ export default function App() {
               />
             </div>
 
-            {/* Bottom Row: Red on Left (Bottom-Left House), Blue on Right (Bottom-Right House) */}
+            {/* Bottom Row: Blue on Left (Bottom-Left House), Yellow on Right (Bottom-Right House) */}
             <div className="w-full flex items-center justify-between mt-2 px-1">
-              {players.find((p) => p.color === 'red') ? (
-                <PlayerBox
-                  player={players.find((p) => p.color === 'red')!}
-                  isActive={currentTurnColor === 'red'}
-                  diceValue={currentTurnColor === 'red' ? diceValue : null}
-                  isRolling={isRolling}
-                  canRoll={canRollNow && currentTurnColor === 'red'}
-                  onRoll={handleRoll}
-                  orientation="left"
-                  playerName="Player 4"
-                  isTeamMode={isTeamMode}
-                />
-              ) : <div />}
-
               {players.find((p) => p.color === 'blue') ? (
                 <PlayerBox
                   player={players.find((p) => p.color === 'blue')!}
@@ -1526,8 +1493,22 @@ export default function App() {
                   isRolling={isRolling}
                   canRoll={canRollNow && currentTurnColor === 'blue'}
                   onRoll={handleRoll}
+                  orientation="left"
+                  playerName="Player 1"
+                  isTeamMode={isTeamMode}
+                />
+              ) : <div />}
+
+              {players.find((p) => p.color === 'yellow') ? (
+                <PlayerBox
+                  player={players.find((p) => p.color === 'yellow')!}
+                  isActive={currentTurnColor === 'yellow'}
+                  diceValue={currentTurnColor === 'yellow' ? diceValue : null}
+                  isRolling={isRolling}
+                  canRoll={canRollNow && currentTurnColor === 'yellow'}
+                  onRoll={handleRoll}
                   orientation="right"
-                  playerName="Player 3"
+                  playerName="Player 4"
                   isTeamMode={isTeamMode}
                 />
               ) : <div />}
@@ -1598,6 +1579,7 @@ export default function App() {
             wins: 0,
             losses: 0,
             totalCaptures: 0,
+            matchHistory: [],
           };
           setCareerStats(reset);
           try {

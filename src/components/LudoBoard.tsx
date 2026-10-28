@@ -3,6 +3,7 @@ import { PlayerColor, Token, Player, HoppingTokenInfo } from '../types/ludo';
 import {
   getTokenCoordinate,
   Coord,
+  YARD_SOCKET_POSITIONS,
 } from '../utils/ludoConstants';
 import { PinPawn } from './PinPawn';
 
@@ -29,12 +30,6 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   hoppingInfo,
   isTeamMode = false,
 }) => {
-  const toBengaliNum = (num: number, l: 'bn' | 'en') => {
-    if (l !== 'bn') return String(num);
-    const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    return String(num).replace(/[0-9]/g, (d) => bnDigits[Number(d)]);
-  };
-
   const targetMovableColor = movableColor || activeColor;
 
   // Compute all token positions on the board
@@ -69,7 +64,12 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   // Group tokens that share the exact same integer grid cell for offset stacking
   const cellGroups = new Map<string, PlacedToken[]>();
   placedTokens.forEach((pt) => {
-    const cellKey = `${Math.round(pt.coord[0] * 10) / 10},${Math.round(pt.coord[1] * 10) / 10}`;
+    // If in yard (step === -1), each token has its own independent socket
+    const cellKey =
+      pt.token.step === -1
+        ? `${pt.player.color}-yard-${pt.token.id}`
+        : `${Math.round(pt.coord[0] * 10) / 10},${Math.round(pt.coord[1] * 10) / 10}`;
+
     if (!cellGroups.has(cellKey)) {
       cellGroups.set(cellKey, []);
     }
@@ -78,85 +78,77 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
   // Calculate micro offsets & dynamic reduction scaling when multiple tokens share the same cell
   const getOffset = (group: PlacedToken[], index: number): { x: number; y: number; scale: number } => {
-    // Single token: compact standard scale
+    // Single token or yard token: always centered at standard scale
     if (group.length <= 1) return { x: 0, y: 0, scale: 1.0 };
 
-    // 2 tokens: noticeably smaller, positioned diagonally so both are clear
+    // 2 tokens: slightly offset diagonally so both are clear
     if (group.length === 2) {
       return index === 0
-        ? { x: -6, y: -6, scale: 0.70 }
-        : { x: 6, y: 6, scale: 0.70 };
+        ? { x: -3.5, y: -3.5, scale: 0.82 }
+        : { x: 3.5, y: 3.5, scale: 0.82 };
     }
 
-    // 3 tokens: even smaller in a neat triangle formation
+    // 3 tokens: triangle formation
     if (group.length === 3) {
-      if (index === 0) return { x: 0, y: -6.5, scale: 0.58 };
-      if (index === 1) return { x: -6.5, y: 5.5, scale: 0.58 };
-      return { x: 6.5, y: 5.5, scale: 0.58 };
+      if (index === 0) return { x: 0, y: -4.5, scale: 0.72 };
+      if (index === 1) return { x: -4.5, y: 4, scale: 0.72 };
+      return { x: 4.5, y: 4, scale: 0.72 };
     }
 
-    // 4 tokens: 2x2 grid, significantly smaller to fit cleanly inside the cell
+    // 4 tokens: 2x2 grid
     if (group.length === 4) {
       const offsets = [
-        { x: -6, y: -6 },
-        { x: 6, y: -6 },
-        { x: -6, y: 6 },
-        { x: 6, y: 6 },
+        { x: -4, y: -4 },
+        { x: 4, y: -4 },
+        { x: -4, y: 4 },
+        { x: 4, y: 4 },
       ];
-      return { ...offsets[index % 4], scale: 0.48 };
+      return { ...offsets[index % 4], scale: 0.62 };
     }
 
-    // 5 or more tokens (e.g. crowded safe zone or home goal):
-    // Form a compact ring with micro scale so every token is distinctly visible
+    // 5+ tokens: circle formation
     const angle = (index / group.length) * Math.PI * 2;
-    const radius = 7.5;
+    const radius = 5.5;
     return {
       x: Math.round(Math.cos(angle) * radius * 10) / 10,
       y: Math.round(Math.sin(angle) * radius * 10) / 10,
-      scale: 0.42,
+      scale: 0.52,
     };
   };
 
-  // Safe track spots with circular ring markers matching the uploaded board photo
-  const safeCircleCoords: Coord[] = [
-    [8, 2],   // Red safe spot
-    [2, 6],   // Green safe spot
-    [6, 12],  // Yellow safe spot
-    [12, 8],  // Blue safe spot
-    [7, 3],   // Green home stretch indicator
-  ];
-
-  const isSafeCircleCell = (r: number, c: number) => {
-    return safeCircleCoords.some(([sr, sc]) => sr === r && sc === c);
+  // Safe track spots with stars (☆) matching classic reference board photo
+  const isSafeStarCell = (r: number, c: number) => {
+    return (
+      (r === 8 && c === 2) ||  // Red safe star
+      (r === 2 && c === 6) ||  // Green safe star
+      (r === 6 && c === 12) || // Yellow safe star
+      (r === 12 && c === 8)    // Blue safe star
+    );
   };
 
   // Check cell color for home paths, starting positions and safe spots
   const getCellType = (r: number, c: number) => {
-    // Green (Top-Left): start at [6, 1], home stretch [7, 1..5], safe spot at [2, 6]
-    if (r === 7 && c >= 1 && c <= 5) return 'green-home';
-    if (r === 6 && c === 1) return 'green-start';
-    if (r === 2 && c === 6) return 'green-safe';
+    // Red (Top-Left): start at [6, 1], home stretch [7, 1..5]
+    if (r === 7 && c >= 1 && c <= 5) return 'red-home';
+    if (r === 6 && c === 1) return 'red-start';
 
-    // Yellow (Top-Right): start at [1, 8], home stretch [1..5, 7], safe spot at [6, 12]
-    if (c === 7 && r >= 1 && r <= 5) return 'yellow-home';
-    if (r === 1 && c === 8) return 'yellow-start';
-    if (r === 6 && c === 12) return 'yellow-safe';
+    // Green (Top-Right): start at [1, 8], home stretch [1..5, 7]
+    if (c === 7 && r >= 1 && r <= 5) return 'green-home';
+    if (r === 1 && c === 8) return 'green-start';
 
-    // Blue (Bottom-Right): start at [8, 13], home stretch [7, 9..13], safe spot at [12, 8]
-    if (r === 7 && c >= 9 && c <= 13) return 'blue-home';
-    if (r === 8 && c === 13) return 'blue-start';
-    if (r === 12 && c === 8) return 'blue-safe';
+    // Yellow (Bottom-Right): start at [8, 13], home stretch [7, 9..13]
+    if (r === 7 && c >= 9 && c <= 13) return 'yellow-home';
+    if (r === 8 && c === 13) return 'yellow-start';
 
-    // Red (Bottom-Left): start at [13, 6], home stretch [9..13, 7], safe spot at [8, 2]
-    if (c === 7 && r >= 9 && r <= 13) return 'red-home';
-    if (r === 13 && c === 6) return 'red-start';
-    if (r === 8 && c === 2) return 'red-safe';
+    // Blue (Bottom-Left): start at [13, 6], home stretch [9..13, 7]
+    if (c === 7 && r >= 9 && r <= 13) return 'blue-home';
+    if (r === 13 && c === 6) return 'blue-start';
 
     return 'neutral';
   };
 
   return (
-    <div className="relative w-full max-w-[500px] aspect-square mx-auto rounded-xl border-4 border-slate-900 bg-white select-none overflow-hidden shadow-2xl">
+    <div className="relative w-full max-w-[500px] aspect-square mx-auto rounded-2xl border-4 border-[#17345b] bg-white select-none overflow-hidden shadow-2xl shadow-black/50">
       {/* 15x15 Base Grid */}
       <div
         className="w-full h-full grid"
@@ -178,29 +170,52 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             }
 
             const cellType = getCellType(r, c);
-            const hasSafeCircle = isSafeCircleCell(r, c);
+            const hasStar = isSafeStarCell(r, c);
 
-            let bgClass = 'bg-white border-slate-900';
+            let bgClass = 'bg-white';
+            let borderClass = 'border-[#7d8d9f]/70';
 
-            if (cellType === 'green-home' || cellType === 'green-start' || cellType === 'green-safe') {
-              bgClass = 'bg-[#00a651] border-slate-900';
-            } else if (cellType === 'yellow-home' || cellType === 'yellow-start' || cellType === 'yellow-safe') {
-              bgClass = 'bg-[#ffcb05] border-slate-900';
-            } else if (cellType === 'blue-home' || cellType === 'blue-start' || cellType === 'blue-safe') {
-              bgClass = 'bg-[#0071bc] border-slate-900';
-            } else if (cellType === 'red-home' || cellType === 'red-start' || cellType === 'red-safe') {
-              bgClass = 'bg-[#e52427] border-slate-900';
+            if (cellType === 'red-home' || cellType === 'red-start') {
+              bgClass = 'bg-[#ed3038] text-white';
+            } else if (cellType === 'green-home' || cellType === 'green-start') {
+              bgClass = 'bg-[#19a85b] text-white';
+            } else if (cellType === 'yellow-home' || cellType === 'yellow-start') {
+              bgClass = 'bg-[#ffc928] text-slate-900';
+            } else if (cellType === 'blue-home' || cellType === 'blue-start') {
+              bgClass = 'bg-[#1677e8] text-white';
             }
 
             return (
               <div
                 key={`${r}-${c}`}
-                className={`border-[1px] ${bgClass} flex items-center justify-center relative`}
+                className={`border-[0.5px] ${borderClass} ${bgClass} flex items-center justify-center relative font-bold`}
               >
-                {/* Safe spot concentric ring marker matching board photo */}
-                {hasSafeCircle && (
-                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 border-black/35 flex items-center justify-center">
-                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-black/25" />
+                {/* Safe spot star marker matching reference image */}
+                {hasStar && (
+                  <span className="text-[#64748b] text-sm sm:text-base select-none pointer-events-none leading-none">
+                    ☆
+                  </span>
+                )}
+
+                {/* Starting direction arrows on starting cells */}
+                {cellType === 'red-start' && (
+                  <div className="flex flex-col items-center justify-center leading-none text-white select-none pointer-events-none">
+                    <span className="text-[14px] sm:text-[16px] font-black">→</span>
+                  </div>
+                )}
+                {cellType === 'green-start' && (
+                  <div className="flex flex-col items-center justify-center leading-none text-white select-none pointer-events-none">
+                    <span className="text-[14px] sm:text-[16px] font-black">↓</span>
+                  </div>
+                )}
+                {cellType === 'yellow-start' && (
+                  <div className="flex flex-col items-center justify-center leading-none text-slate-900 select-none pointer-events-none">
+                    <span className="text-[14px] sm:text-[16px] font-black">←</span>
+                  </div>
+                )}
+                {cellType === 'blue-start' && (
+                  <div className="flex flex-col items-center justify-center leading-none text-white select-none pointer-events-none">
+                    <span className="text-[14px] sm:text-[16px] font-black">↑</span>
                   </div>
                 )}
               </div>
@@ -209,172 +224,118 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         )}
       </div>
 
-      {/* --- 4 CORNER HOUSES / YARDS (BEAUTIFULLY DECORATED WITH TOKEN COLORS) --- */}
+      {/* --- 4 CORNER HOUSES / YARDS (MATCHING USER REFERENCE SCREENSHOT) --- */}
 
-      {/* 1. Top-Left: GREEN HOUSE (সবুজ ঘর) */}
-      <div className="absolute top-0 left-0 w-[40%] h-[40%] bg-gradient-to-br from-[#0da644] via-[#059639] to-[#025a21] border-r-2 border-b-2 border-slate-900 flex items-center justify-center relative shadow-inner overflow-hidden">
-        {/* Subtle Ornamental Corner Filigree */}
-        <div className="absolute top-1.5 left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 border-emerald-200/90 rounded-tl pointer-events-none" />
-        <div className="absolute top-2 left-2 text-[10px] text-emerald-200/70 font-bold select-none pointer-events-none">🟢</div>
+      {/* 1. Corner Colored Yard Panels (40% x 40% in each corner) */}
+      <div className="absolute top-0 left-0 w-[40%] h-[40%] bg-[#ed3038] border-r-2 border-b-2 border-[#17345b] shadow-inner pointer-events-none" />
+      <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-[#19a85b] border-l-2 border-b-2 border-[#17345b] shadow-inner pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[40%] h-[40%] bg-[#ffc928] border-l-2 border-t-2 border-[#17345b] shadow-inner pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[40%] h-[40%] bg-[#1677e8] border-r-2 border-t-2 border-[#17345b] shadow-inner pointer-events-none" />
 
-        {/* Rich Layered Dark Green Center Circle */}
-        <div className="absolute inset-0 m-auto w-[76%] h-[76%] rounded-full bg-gradient-to-b from-[#006e2e] via-[#005824] to-[#003d18] border-2 border-emerald-400/50 shadow-[inset_0_3px_10px_rgba(0,0,0,0.5),0_0_12px_rgba(16,185,129,0.25)] flex items-center justify-center pointer-events-none">
-          {/* Subtle Center Rosette Ring */}
-          <div className="w-7 h-7 rounded-full border border-emerald-300/30 flex items-center justify-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/40" />
-          </div>
-        </div>
+      {/* 2. Inner White Rounded Yard Bases (28% x 28% centered in each corner) */}
+      <div className="absolute top-[6%] left-[6%] w-[28%] h-[28%] bg-white rounded-2xl border border-black/10 shadow-sm pointer-events-none" />
+      <div className="absolute top-[6%] left-[66%] w-[28%] h-[28%] bg-white rounded-2xl border border-black/10 shadow-sm pointer-events-none" />
+      <div className="absolute top-[66%] left-[66%] w-[28%] h-[28%] bg-white rounded-2xl border border-black/10 shadow-sm pointer-events-none" />
+      <div className="absolute top-[66%] left-[6%] w-[28%] h-[28%] bg-white rounded-2xl border border-black/10 shadow-sm pointer-events-none" />
 
-        {/* 4 Beautiful Jewel Sockets Decorated in Green */}
-        {[
-          { left: '30%', top: '30%' },
-          { left: '70%', top: '30%' },
-          { left: '30%', top: '70%' },
-          { left: '70%', top: '70%' },
-        ].map((pos, idx) => (
+      {/* 3. 16 Circular Resting Sockets (Rendered directly from YARD_SOCKET_POSITIONS for 100% exact alignment) */}
+      {(['red', 'green', 'yellow', 'blue'] as PlayerColor[]).map((color) => {
+        const sockets = YARD_SOCKET_POSITIONS[color];
+        const ringBorder =
+          color === 'red'
+            ? 'border-[#ed3038] bg-rose-50/70'
+            : color === 'green'
+            ? 'border-[#19a85b] bg-emerald-50/70'
+            : color === 'yellow'
+            ? 'border-[#ffc928] bg-amber-50/70'
+            : 'border-[#1677e8] bg-sky-50/70';
+        const innerDot =
+          color === 'red'
+            ? 'bg-[#ed3038]/15 border-[#ed3038]/30'
+            : color === 'green'
+            ? 'bg-[#19a85b]/15 border-[#19a85b]/30'
+            : color === 'yellow'
+            ? 'bg-[#ffc928]/20 border-[#ffc928]/40'
+            : 'bg-[#1677e8]/15 border-[#1677e8]/30';
+
+        return sockets.map((pos, idx) => (
           <div
-            key={idx}
-            className="absolute w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white shadow-[0_2px_8px_rgba(5,150,105,0.4)] border-2 border-emerald-600/80 flex items-center justify-center pointer-events-none p-1"
-            style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
+            key={`${color}-socket-${idx}`}
+            className={`absolute w-[9.2%] h-[9.2%] rounded-full border-[2.5px] ${ringBorder} flex items-center justify-center pointer-events-none shadow-inner`}
+            style={{
+              left: `${pos.left}%`,
+              top: `${pos.top}%`,
+              transform: 'translate(-50%, -50%)',
+            }}
           >
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-emerald-100 via-emerald-50 to-white border border-emerald-400 flex items-center justify-center shadow-inner">
-              <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full bg-gradient-to-b from-emerald-500 to-green-600 shadow-sm border border-emerald-300" />
-            </div>
+            <div className={`w-[60%] h-[60%] rounded-full ${innerDot} border`} />
           </div>
-        ))}
-      </div>
+        ));
+      })}
 
-      {/* 2. Top-Right: YELLOW HOUSE (হলুদ ঘর) */}
-      <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-gradient-to-bl from-[#ffcb05] via-[#f59e0b] to-[#c26d04] border-l-2 border-b-2 border-slate-900 flex items-center justify-center relative shadow-inner overflow-hidden">
-        {/* Subtle Ornamental Corner Filigree */}
-        <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 border-amber-200/90 rounded-tr pointer-events-none" />
-        <div className="absolute top-2 right-2 text-[10px] text-amber-100/80 font-bold select-none pointer-events-none">🟡</div>
-
-        {/* Rich Layered Dark Amber Center Circle */}
-        <div className="absolute inset-0 m-auto w-[76%] h-[76%] rounded-full bg-gradient-to-b from-[#f39200] via-[#d97706] to-[#9a4e03] border-2 border-amber-300/60 shadow-[inset_0_3px_10px_rgba(0,0,0,0.5),0_0_12px_rgba(245,158,11,0.25)] flex items-center justify-center pointer-events-none">
-          {/* Subtle Center Rosette Ring */}
-          <div className="w-7 h-7 rounded-full border border-amber-300/35 flex items-center justify-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-amber-300/50" />
-          </div>
-        </div>
-
-        {/* 4 Beautiful Jewel Sockets Decorated in Yellow */}
-        {[
-          { left: '30%', top: '30%' },
-          { left: '70%', top: '30%' },
-          { left: '30%', top: '70%' },
-          { left: '70%', top: '70%' },
-        ].map((pos, idx) => (
-          <div
-            key={idx}
-            className="absolute w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white shadow-[0_2px_8px_rgba(217,119,6,0.4)] border-2 border-amber-500/80 flex items-center justify-center pointer-events-none p-1"
-            style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
-          >
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-100 via-amber-50 to-white border border-amber-400 flex items-center justify-center shadow-inner">
-              <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full bg-gradient-to-b from-amber-400 to-yellow-500 shadow-sm border border-amber-200" />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 3. Bottom-Right: BLUE HOUSE (নীল ঘর) */}
-      <div className="absolute bottom-0 right-0 w-[40%] h-[40%] bg-gradient-to-tl from-[#0284c7] via-[#0071bc] to-[#004785] border-l-2 border-t-2 border-slate-900 flex items-center justify-center relative shadow-inner overflow-hidden">
-        {/* Subtle Ornamental Corner Filigree */}
-        <div className="absolute bottom-1.5 right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 border-sky-200/90 rounded-br pointer-events-none" />
-        <div className="absolute bottom-2 right-2 text-[10px] text-sky-200/80 font-bold select-none pointer-events-none">🔵</div>
-
-        {/* Rich Layered Dark Navy Center Circle */}
-        <div className="absolute inset-0 m-auto w-[76%] h-[76%] rounded-full bg-gradient-to-b from-[#004b87] via-[#003866] to-[#002444] border-2 border-sky-400/50 shadow-[inset_0_3px_10px_rgba(0,0,0,0.5),0_0_12px_rgba(2,132,199,0.25)] flex items-center justify-center pointer-events-none">
-          {/* Subtle Center Rosette Ring */}
-          <div className="w-7 h-7 rounded-full border border-sky-300/35 flex items-center justify-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-sky-300/50" />
-          </div>
-        </div>
-
-        {/* 4 Beautiful Jewel Sockets Decorated in Blue */}
-        {[
-          { left: '30%', top: '30%' },
-          { left: '70%', top: '30%' },
-          { left: '30%', top: '70%' },
-          { left: '70%', top: '70%' },
-        ].map((pos, idx) => (
-          <div
-            key={idx}
-            className="absolute w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white shadow-[0_2px_8px_rgba(2,132,199,0.4)] border-2 border-sky-600/80 flex items-center justify-center pointer-events-none p-1"
-            style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
-          >
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-sky-100 via-sky-50 to-white border border-sky-400 flex items-center justify-center shadow-inner">
-              <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full bg-gradient-to-b from-sky-500 to-blue-600 shadow-sm border border-sky-300" />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 4. Bottom-Left: RED HOUSE (লাল ঘর) */}
-      <div className="absolute bottom-0 left-0 w-[40%] h-[40%] bg-gradient-to-tr from-[#f43f5e] via-[#e52427] to-[#991b1b] border-r-2 border-t-2 border-slate-900 flex items-center justify-center relative shadow-inner overflow-hidden">
-        {/* Subtle Ornamental Corner Filigree */}
-        <div className="absolute bottom-1.5 left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 border-rose-200/90 rounded-bl pointer-events-none" />
-        <div className="absolute bottom-2 left-2 text-[10px] text-rose-200/80 font-bold select-none pointer-events-none">🔴</div>
-
-        {/* Rich Layered Dark Crimson Center Circle */}
-        <div className="absolute inset-0 m-auto w-[76%] h-[76%] rounded-full bg-gradient-to-b from-[#b0171a] via-[#8c1215] to-[#590a0c] border-2 border-rose-400/50 shadow-[inset_0_3px_10px_rgba(0,0,0,0.5),0_0_12px_rgba(225,29,72,0.25)] flex items-center justify-center pointer-events-none">
-          {/* Subtle Center Rosette Ring */}
-          <div className="w-7 h-7 rounded-full border border-rose-300/35 flex items-center justify-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-rose-300/50" />
-          </div>
-        </div>
-
-        {/* 4 Beautiful Jewel Sockets Decorated in Red */}
-        {[
-          { left: '30%', top: '30%' },
-          { left: '70%', top: '30%' },
-          { left: '30%', top: '70%' },
-          { left: '70%', top: '70%' },
-        ].map((pos, idx) => (
-          <div
-            key={idx}
-            className="absolute w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white shadow-[0_2px_8px_rgba(225,29,72,0.4)] border-2 border-rose-600/80 flex items-center justify-center pointer-events-none p-1"
-            style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
-          >
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-rose-100 via-rose-50 to-white border border-rose-400 flex items-center justify-center shadow-inner">
-              <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full bg-gradient-to-b from-rose-500 to-red-600 shadow-sm border border-rose-300" />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* --- CENTER 3x3 FINISH GOAL (Triangles matching board photo) --- */}
-      <div className="absolute top-[40%] left-[40%] w-[20%] h-[20%] border-2 border-slate-900 overflow-hidden bg-white">
+      {/* --- CENTER 3x3 FINISH GOAL (Classic 4 Triangles matching reference) --- */}
+      <div className="absolute top-[40%] left-[40%] w-[20%] h-[20%] border-2 border-[#17345b] overflow-hidden bg-white">
         <svg viewBox="0 0 100 100" className="w-full h-full">
-          {/* Left triangle: Green */}
-          <polygon points="0,0 50,50 0,100" fill="#00a651" stroke="#0f172a" strokeWidth="1.5" />
-          {/* Top triangle: Yellow */}
-          <polygon points="0,0 50,50 100,0" fill="#ffcb05" stroke="#0f172a" strokeWidth="1.5" />
-          {/* Right triangle: Blue */}
-          <polygon points="100,0 50,50 100,100" fill="#0071bc" stroke="#0f172a" strokeWidth="1.5" />
-          {/* Bottom triangle: Red */}
-          <polygon points="0,100 50,50 100,100" fill="#e52427" stroke="#0f172a" strokeWidth="1.5" />
+          {/* Left triangle: Red (meets Red home lane) */}
+          <polygon points="0,0 50,50 0,100" fill="#ed3038" stroke="#17345b" strokeWidth="1" />
+          {/* Top triangle: Green (meets Green home lane) */}
+          <polygon points="0,0 50,50 100,0" fill="#19a85b" stroke="#17345b" strokeWidth="1" />
+          {/* Right triangle: Yellow (meets Yellow home lane) */}
+          <polygon points="100,0 50,50 100,100" fill="#ffc928" stroke="#17345b" strokeWidth="1" />
+          {/* Bottom triangle: Blue (meets Blue home lane) */}
+          <polygon points="0,100 50,50 100,100" fill="#1677e8" stroke="#17345b" strokeWidth="1" />
+          {/* Center Goal Circle */}
+          <circle cx="50" cy="50" r="16" fill="#ffffff" stroke="#17345b" strokeWidth="1.5" />
+          {/* Crown Emblem in the Center */}
+          <text
+            x="50"
+            y="56"
+            textAnchor="middle"
+            fontSize="18"
+            className="select-none pointer-events-none"
+          >
+            👑
+          </text>
         </svg>
       </div>
 
-      {/* --- DYNAMIC PAWN TOKENS LAYER (Direct Smooth Pawn Movement) --- */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* --- DYNAMIC PAWN TOKENS LAYER (Exact Responsive Sizing & Center-Aligned Positioning) --- */}
+      <div className="absolute inset-0 pointer-events-none overflow-visible">
         {Array.from(cellGroups.entries()).map(([, group]) => {
           return group.map((pt, idx) => {
             const [row, col] = pt.coord;
             const offset = getOffset(group, idx);
 
-            const leftPercent = ((col + 0.5) / 15) * 100;
-            const topPercent = ((row + 0.5) / 15) * 100;
+            const isYard = pt.token.step === -1;
+            // Home Area token diameter: 8.2% of board (fits centered inside the 9.2% socket ring)
+            // Track token diameter: 5.2% of board (~78% of a cell's 6.667% width)
+            const tokenSizePercent = isYard ? 8.2 : 5.2;
+
+            // When in yard, use exact socket centers to eliminate any displacement
+            let leftPercent: number;
+            let topPercent: number;
+
+            if (isYard) {
+              const socketPos = YARD_SOCKET_POSITIONS[pt.player.color][pt.token.id];
+              leftPercent = socketPos.left;
+              topPercent = socketPos.top;
+            } else {
+              const [row, col] = pt.coord;
+              leftPercent = ((col + 0.5) / 15) * 100;
+              topPercent = ((row + 0.5) / 15) * 100;
+            }
 
             const isHopping =
               hoppingInfo?.color === pt.player.color &&
               hoppingInfo?.tokenId === pt.token.id;
 
-            // User requirement 5: The player whose turn it is has slightly larger tokens than other players
             const isTurnPlayer = pt.player.color === (movableColor || activeColor);
-            const turnMultiplier = isTurnPlayer ? 1.20 : 1.0;
-            const finalScale = isHopping ? 1.32 : Math.round(offset.scale * turnMultiplier * 100) / 100;
+
+            // User requirement: "আর যে গুটির চাল থাকবে সে গুটি অন্যান্য গুলির তুলনায় একটু বড় দেখা যাবে।"
+            // When token has a valid move on this turn (pt.isMovable), it scales up by 1.25x so it's clearly larger!
+            // Also turn player's tokens scale up slightly (1.08x) to signal whose turn it is.
+            const turnScale = pt.isMovable ? 1.25 : isTurnPlayer ? 1.08 : 1.0;
+            const finalScale = offset.scale * turnScale;
 
             return (
               <div
@@ -382,11 +343,13 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 style={{
                   left: `${leftPercent}%`,
                   top: `${topPercent}%`,
+                  width: `${tokenSizePercent}%`,
+                  height: `${tokenSizePercent}%`,
                   transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${finalScale})`,
-                  zIndex: isHopping ? 70 : pt.isMovable ? 45 : isTurnPlayer ? 35 + idx : 20 + idx,
+                  zIndex: isHopping ? 70 : pt.isMovable ? 50 : isTurnPlayer ? 35 + idx : 20 + idx,
                 }}
-                className={`absolute transition-all duration-300 ease-out pointer-events-auto ${
-                  pt.isMovable ? 'cursor-pointer hover:scale-125' : ''
+                className={`absolute transition-all duration-300 ease-out pointer-events-auto flex items-center justify-center ${
+                  pt.isMovable ? 'cursor-pointer hover:scale-135' : ''
                 }`}
                 onClick={() => {
                   if (pt.isMovable) {
@@ -399,15 +362,15 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                   <span className="absolute -inset-1 rounded-full bg-amber-400 opacity-75 animate-ping pointer-events-none" />
                 )}
 
-                {/* Subtle turn highlight halo for active player's tokens */}
+                {/* Turn highlight halo for active player's tokens */}
                 {isTurnPlayer && !pt.isMovable && !isHopping && (
                   <span className="absolute -inset-0.5 rounded-full ring-1 ring-amber-300/40 pointer-events-none" />
                 )}
 
-                {/* THE PIN PAWN (Noticeably smaller compact size, active player scaled 1.2x larger) */}
+                {/* The User's Exact PinPawn Token (Scaled to 100% of wrapper container) */}
                 <PinPawn
                   color={pt.player.color}
-                  size={20}
+                  size="100%"
                   isHopping={isHopping}
                   className={pt.isMovable ? 'animate-bounce' : ''}
                 />

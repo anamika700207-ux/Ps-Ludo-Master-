@@ -3,14 +3,14 @@ import { PlayerColor } from '../types/ludo';
 
 interface PinPawnProps {
   color: PlayerColor;
-  size?: number; // width and height in px
+  size?: number | string; // width and height in px or string (e.g. '100%')
   className?: string;
   isHopping?: boolean;
 }
 
 export const PinPawn: React.FC<PinPawnProps> = ({
   color,
-  size = 20, // Compact, refined circular token
+  size = '100%',
   className = '',
   isHopping = false,
 }) => {
@@ -57,9 +57,11 @@ export const PinPawn: React.FC<PinPawnProps> = ({
   const c = colorMap[color];
   const gradientId = `token-grad-${color}`;
 
+  const sizeStyle = typeof size === 'number' ? `${size}px` : size;
+
   return (
     <div
-      style={{ width: size, height: size }}
+      style={{ width: sizeStyle, height: sizeStyle }}
       className={`relative flex items-center justify-center select-none transition-transform duration-200 ${
         isHopping ? 'scale-115' : ''
       } ${className}`}

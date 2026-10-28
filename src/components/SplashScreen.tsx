@@ -12,7 +12,7 @@ interface SplashScreenProps {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
-  durationSeconds = 5,
+  durationSeconds = 3,
   onComplete,
   lang,
   title,

@@ -23,6 +23,7 @@ import {
 import { PWAInstallButton } from './PWAInstallButton';
 import { InGameMusicWidget } from './InGameMusicWidget';
 import { triggerHaptic } from '../utils/haptics';
+import { useCustomMusic } from '../context/CustomMusicContext';
 
 interface TitleScreenProps {
   mode: GameMode;
@@ -78,6 +79,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 }) => {
   const t = TRANSLATIONS[lang];
   const isBn = lang === 'bn';
+  const { isPlaying } = useCustomMusic();
 
   // Modal setup state: opens whenever user clicks Pass & Play, Vs Computer, or Team Up
   const [setupModalMode, setSetupModalMode] = useState<SetupModalMode>(null);
@@ -119,10 +121,19 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
       {/* TOP HEADER: Player Profile Bar + Coin/Gem Balance + Controls (Matching Ludo King Layout) */}
       <div className="relative z-10 w-full max-w-4xl mx-auto flex items-center justify-between gap-2 py-2">
-        {/* Left: Player Profile Pill */}
-        <div className="flex items-center gap-2 p-1 pr-3 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-lg backdrop-blur-md">
+        {/* Left: Player Profile Pill (Click to open Career Stats & Match History) */}
+        <button
+          type="button"
+          onClick={() => {
+            sounds.playClick();
+            triggerHaptic('light');
+            if (onOpenStats) onOpenStats();
+          }}
+          title={isBn ? 'প্রোফাইল ও খেলোয়াড়ের পরিসংখ্যান' : 'Player Profile & Career Stats'}
+          className="flex items-center gap-2 p-1 pr-3 rounded-full bg-slate-900/90 border border-slate-700/80 hover:border-amber-400/80 hover:bg-slate-800/90 shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer text-left group"
+        >
           {/* Avatar with level badge */}
-          <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 p-0.5 shadow-md flex items-center justify-center">
+          <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 p-0.5 shadow-md flex items-center justify-center group-hover:ring-2 group-hover:ring-amber-300 transition-all">
             <img
               src="/assets/aistudio/1792946521939_99423c66.png"
               alt="Avatar"
@@ -141,7 +152,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
           {/* Name & Coin Badge */}
           <div className="flex flex-col text-left leading-tight">
-            <span className="text-xs font-bold text-slate-200 truncate max-w-[90px] sm:max-w-[120px]">
+            <span className="text-xs font-bold text-slate-200 group-hover:text-amber-300 transition-colors truncate max-w-[90px] sm:max-w-[120px]">
               {playerName || 'Player 1'}
             </span>
             <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-300">
@@ -149,72 +160,112 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               <span>3,150</span>
             </div>
           </div>
-        </div>
+        </button>
 
-        {/* Center/Right: Gems & Action Controls */}
-        <div className="flex items-center gap-2">
-          {/* Gems Counter Pill */}
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/30 text-cyan-300 font-black text-xs shadow-md">
-            <span>💎</span>
-            <span>50</span>
+        {/* Center/Right: Gems, Music & Action Controls */}
+        {isPlaying ? (
+          <div className="flex flex-col items-end gap-1.5 shrink-0 z-20">
+            {/* Top row: Gems + PWA + Music Widget */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Gems Counter Pill */}
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/30 text-cyan-300 font-black text-xs shadow-md">
+                <span>💎</span>
+                <span>50</span>
+              </div>
+
+              {/* PWA Mobile Install Button */}
+              <PWAInstallButton lang={lang} variant="button" />
+
+              {/* Custom Music Widget in Title Screen */}
+              <InGameMusicWidget
+                lang={lang}
+                onOpenSettings={onOpenSettings || (() => {})}
+              />
+            </div>
+
+            {/* Bottom row directly under music player: Settings and Rules */}
+            <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+              {/* Settings Button */}
+              {onOpenSettings && (
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    triggerHaptic('light');
+                    onOpenSettings();
+                  }}
+                  aria-label="Settings"
+                  title={isBn ? 'সেটিংস' : 'Settings'}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-950/90 to-indigo-950/90 border border-purple-500/50 text-purple-200 hover:text-white hover:border-purple-300 hover:bg-purple-900/60 transition shadow-md active:scale-95"
+                >
+                  <Settings className="w-3.5 h-3.5 text-purple-300 animate-[spin_8s_linear_infinite]" />
+                  <span>{isBn ? 'সেটিংস' : 'Settings'}</span>
+                </button>
+              )}
+
+              {/* Rules Button */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  onOpenRules();
+                }}
+                aria-label="Rules"
+                title={isBn ? 'খেলার নিয়মাবলী' : 'Game Rules'}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900/90 border border-slate-800 text-amber-300 hover:bg-slate-800 transition shadow-sm active:scale-95"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>{t.rules}</span>
+              </button>
+            </div>
           </div>
+        ) : (
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Gems Counter Pill */}
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/30 text-cyan-300 font-black text-xs shadow-md">
+              <span>💎</span>
+              <span>50</span>
+            </div>
 
-          {/* PWA Mobile Install Button */}
-          <PWAInstallButton lang={lang} variant="button" />
+            {/* PWA Mobile Install Button */}
+            <PWAInstallButton lang={lang} variant="button" />
 
-          {/* Custom Music Widget in Title Screen */}
-          <InGameMusicWidget
-            lang={lang}
-            onOpenSettings={onOpenSettings || (() => {})}
-          />
+            {/* Custom Music Widget in Title Screen */}
+            <InGameMusicWidget
+              lang={lang}
+              onOpenSettings={onOpenSettings || (() => {})}
+            />
 
-          {/* Settings Button */}
-          {onOpenSettings && (
+            {/* Settings Button */}
+            {onOpenSettings && (
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  triggerHaptic('light');
+                  onOpenSettings();
+                }}
+                aria-label="Settings"
+                title={isBn ? 'সেটিংস' : 'Settings'}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-950/90 to-indigo-950/90 border border-purple-500/50 text-purple-200 hover:text-white hover:border-purple-300 hover:bg-purple-900/60 transition shadow-md active:scale-95"
+              >
+                <Settings className="w-3.5 h-3.5 text-purple-300 animate-[spin_8s_linear_infinite]" />
+                <span className="hidden sm:inline">{isBn ? 'সেটিংস' : 'Settings'}</span>
+              </button>
+            )}
+
+            {/* Rules Button */}
             <button
               onClick={() => {
                 sounds.playClick();
-                triggerHaptic('light');
-                onOpenSettings();
+                onOpenRules();
               }}
-              aria-label="Settings"
-              title={isBn ? 'সেটিংস' : 'Settings'}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-950/90 to-indigo-950/90 border border-purple-500/50 text-purple-200 hover:text-white hover:border-purple-300 hover:bg-purple-900/60 transition shadow-md active:scale-95"
+              aria-label="Rules"
+              title={isBn ? 'খেলার নিয়মাবলী' : 'Game Rules'}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900/90 border border-slate-800 text-amber-300 hover:bg-slate-800 transition shadow-sm active:scale-95"
             >
-              <Settings className="w-3.5 h-3.5 text-purple-300 animate-[spin_8s_linear_infinite]" />
-              <span className="hidden sm:inline">{isBn ? 'সেটিংস' : 'Settings'}</span>
+              <BookOpen className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t.rules}</span>
             </button>
-          )}
-
-          {/* Rules Button */}
-          <button
-            onClick={() => {
-              sounds.playClick();
-              onOpenRules();
-            }}
-            aria-label="Rules"
-            title={isBn ? 'খেলার নিয়মাবলী' : 'Game Rules'}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900/90 border border-slate-800 text-amber-300 hover:bg-slate-800 transition shadow-sm"
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t.rules}</span>
-          </button>
-
-          {/* Career Stats Button */}
-          {onOpenStats && (
-            <button
-              onClick={() => {
-                sounds.playClick();
-                onOpenStats();
-              }}
-              aria-label="Career Stats"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900/90 border border-slate-800 text-emerald-400 hover:text-emerald-300 hover:bg-slate-800 transition shadow-sm"
-              title={isBn ? 'খেলোয়াড়ের পরিসংখ্যান' : 'Career Stats'}
-            >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isBn ? 'পরিসংখ্যান' : 'Stats'}</span>
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* MAIN CENTERPIECE: Crown & PS LUDO MASTER Graphic */}

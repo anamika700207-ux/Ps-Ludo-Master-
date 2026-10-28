@@ -32,12 +32,12 @@ export const TRACK_COORDINATES: Coord[] = [
   [6, 0],
 ];
 
-// Starting track index on perimeter for each color (Matching user board image)
+// Starting track index on perimeter for each color (Matching reference classic board)
 export const COLOR_START_INDEX: Record<PlayerColor, number> = {
-  green: 0,
-  yellow: 13,
-  blue: 26,
-  red: 39,
+  red: 0,     // [6, 1] - Left arm top
+  green: 13,  // [1, 8] - Top arm right
+  yellow: 26, // [8, 13] - Right arm bottom
+  blue: 39,   // [13, 6] - Bottom arm left
 };
 
 // Safe squares on perimeter (indices)
@@ -45,16 +45,16 @@ export const SAFE_TRACK_INDICES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 // Home stretch coordinates (steps 51 to 55) for each color
 export const HOME_STRETCH_COORDINATES: Record<PlayerColor, Coord[]> = {
-  green: [
+  red: [
     [7, 1], [7, 2], [7, 3], [7, 4], [7, 5]
   ],
-  yellow: [
+  green: [
     [1, 7], [2, 7], [3, 7], [4, 7], [5, 7]
   ],
-  blue: [
+  yellow: [
     [7, 13], [7, 12], [7, 11], [7, 10], [7, 9]
   ],
-  red: [
+  blue: [
     [13, 7], [12, 7], [11, 7], [10, 7], [9, 7]
   ],
 };
@@ -62,19 +62,54 @@ export const HOME_STRETCH_COORDINATES: Record<PlayerColor, Coord[]> = {
 // Center Goal coordinate
 export const CENTER_GOAL_COORDINATE: Coord = [7, 7];
 
-// Token yard resting coordinates for 4 pawns in each base (centered in white circular sockets)
-export const YARD_COORDINATES: Record<PlayerColor, Coord[]> = {
+// Exact percentage coordinates for the 4 sockets in each player's yard base
+// White inner boxes are 28% x 28% centered at 20% / 80% (margins of 6% from board edges)
+// Sockets are symmetrically placed at 14.4% and 25.6% (and 74.4% and 85.6%)
+export interface YardSocketPercent {
+  left: number;
+  top: number;
+}
+
+export const YARD_SOCKET_POSITIONS: Record<PlayerColor, YardSocketPercent[]> = {
+  red: [
+    { left: 14.4, top: 14.4 },
+    { left: 25.6, top: 14.4 },
+    { left: 14.4, top: 25.6 },
+    { left: 25.6, top: 25.6 },
+  ],
   green: [
-    [1.3, 1.3], [1.3, 3.7], [3.7, 1.3], [3.7, 3.7]
+    { left: 74.4, top: 14.4 },
+    { left: 85.6, top: 14.4 },
+    { left: 74.4, top: 25.6 },
+    { left: 85.6, top: 25.6 },
   ],
   yellow: [
-    [1.3, 10.3], [1.3, 12.7], [3.7, 10.3], [3.7, 12.7]
+    { left: 74.4, top: 74.4 },
+    { left: 85.6, top: 74.4 },
+    { left: 74.4, top: 85.6 },
+    { left: 85.6, top: 85.6 },
   ],
   blue: [
-    [10.3, 10.3], [10.3, 12.7], [12.7, 10.3], [12.7, 12.7]
+    { left: 14.4, top: 74.4 },
+    { left: 25.6, top: 74.4 },
+    { left: 14.4, top: 85.6 },
+    { left: 25.6, top: 85.6 },
   ],
+};
+
+// Token yard resting coordinates for 4 pawns in each base (matching exact 14.4% and 25.6% socket centers)
+export const YARD_COORDINATES: Record<PlayerColor, Coord[]> = {
   red: [
-    [10.3, 1.3], [10.3, 3.7], [12.7, 1.3], [12.7, 3.7]
+    [1.66, 1.66], [1.66, 3.34], [3.34, 1.66], [3.34, 3.34]
+  ],
+  green: [
+    [1.66, 10.66], [1.66, 12.34], [3.34, 10.66], [3.34, 12.34]
+  ],
+  yellow: [
+    [10.66, 10.66], [10.66, 12.34], [12.34, 10.66], [12.34, 12.34]
+  ],
+  blue: [
+    [10.66, 1.66], [10.66, 3.34], [12.34, 1.66], [12.34, 3.34]
   ]
 };
 
@@ -92,10 +127,10 @@ export function getTokenCoordinate(color: PlayerColor, tokenId: number, step: nu
   }
   // Step 56: Home center goal
   const offsets: Record<PlayerColor, Coord> = {
-    green: [7, 6.4],
-    yellow: [6.4, 7],
-    blue: [7, 7.6],
-    red: [7.6, 7]
+    red: [7, 6.4],
+    green: [6.4, 7],
+    yellow: [7, 7.6],
+    blue: [7.6, 7]
   };
   return offsets[color];
 }
