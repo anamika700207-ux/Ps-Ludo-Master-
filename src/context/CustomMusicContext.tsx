@@ -119,6 +119,27 @@ export const CustomMusicProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
   }, []);
 
+  // Pause music if phone screen turns off or page becomes hidden
+  useEffect(() => {
+    const handleScreenOffOrHidden = () => {
+      if (document.hidden || document.visibilityState === 'hidden') {
+        const audio = audioRef.current;
+        if (audio && !audio.paused) {
+          audio.pause();
+          setIsPlaying(false);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleScreenOffOrHidden);
+    window.addEventListener('pagehide', handleScreenOffOrHidden);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleScreenOffOrHidden);
+      window.removeEventListener('pagehide', handleScreenOffOrHidden);
+    };
+  }, []);
+
   // Sync volume & mute to audio
   useEffect(() => {
     if (audioRef.current) {

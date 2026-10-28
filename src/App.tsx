@@ -90,6 +90,7 @@ export default function App() {
   const [isOnlineNoticeOpen, setIsOnlineNoticeOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isExitConfirmModalOpen, setIsExitConfirmModalOpen] = useState(false);
 
   // Mobile Settings: Vibration, Bundle Move, Colorblind, and Theme
   const [vibrationEnabled, setVibrationEnabled] = useState<boolean>(() => {
@@ -1345,46 +1346,29 @@ export default function App() {
         <div className="relative min-h-screen flex-1 flex flex-col justify-between p-2 sm:p-4 w-full ludo-screen-bg overflow-x-hidden">
           {/* Top Bar Controls */}
           <header className="flex items-center justify-between gap-2 max-w-[500px] mx-auto w-full mb-1">
+            {/* Back Button with In-App Confirmation (Iframe safe) */}
             <button
               onClick={() => {
                 sounds.playClick();
-                // User requirement 2: Mid-game match is preserved!
-                if (
-                  confirm(
-                    lang === 'bn'
-                      ? 'খেলা থেকে বের হতে চান? আপনার বর্তমান ম্যাচ সেভ থাকবে এবং পরে চালিয়ে যেতে পারবেন।'
-                      : 'Leave match? Your match will be saved and you can resume anytime.'
-                  )
-                ) {
-                  saveCurrentMatchState();
-                  sounds.stopBgm();
-                  setScreen('TITLE_MENU');
-                }
+                triggerHaptic('medium');
+                setIsExitConfirmModalOpen(true);
               }}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-amber-400 border-2 border-slate-900 shadow-md flex items-center justify-center text-slate-950 font-bold hover:scale-105 transition"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-amber-400 border-2 border-slate-900 shadow-md flex items-center justify-center text-slate-950 font-bold hover:scale-105 active:scale-95 transition shrink-0 cursor-pointer"
               title={t.backToMenu}
+              aria-label={t.backToMenu}
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            {/* Turn Status Pill */}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm shadow">
-              <span className={`w-2 h-2 rounded-full ${COLOR_CONFIG[currentTurnColor].bg} animate-pulse`} />
-              <span className="truncate max-w-[180px] sm:max-w-xs">
-                {statusMessage ||
-                  (lang === 'bn'
-                    ? `${activePlayer?.name || currentTurnColor}-এর চাল`
-                    : `${activePlayer?.name || currentTurnColor}'s Turn`)}
-              </span>
-            </div>
+            {/* Custom Music Widget spans the entire center area */}
+            <InGameMusicWidget
+              lang={lang}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              fullWidth
+            />
 
-            {/* Right Buttons: Music, Chat & Settings */}
-            <div className="flex items-center gap-1.5">
-              <InGameMusicWidget
-                lang={lang}
-                onOpenSettings={() => setIsSettingsOpen(true)}
-              />
-
+            {/* Right Action Controls: QuickChat and Settings */}
+            <div className="flex items-center gap-1.5 shrink-0">
               <QuickChatBar
                 onSendReaction={handleSendReaction}
                 lang={lang}
@@ -1399,7 +1383,7 @@ export default function App() {
                   setIsSettingsOpen(true);
                 }}
                 title={lang === 'bn' ? 'সেটিংস' : 'Settings'}
-                className="w-9 h-9 rounded-full bg-purple-950/80 border border-purple-500/40 flex items-center justify-center text-purple-200 shadow hover:bg-purple-900/80 hover:text-white transition active:scale-95"
+                className="w-9 h-9 rounded-full bg-purple-950/80 border border-purple-500/40 flex items-center justify-center text-purple-200 shadow hover:bg-purple-900/80 hover:text-white transition active:scale-95 cursor-pointer"
               >
                 <Settings className="w-4 h-4 text-purple-300" />
               </button>
@@ -1654,6 +1638,57 @@ export default function App() {
         theme={theme}
         setTheme={handleSetTheme}
       />
+
+      {/* Leave Game In-App Confirmation Modal (Iframe safe & smooth) */}
+      {isExitConfirmModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#151a30] border-2 border-amber-500/50 rounded-3xl p-5 sm:p-6 max-w-sm w-full text-center shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 shadow-inner">
+              <ArrowLeft className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-white">
+                {lang === 'bn' ? 'খেলা থেকে বের হতে চান?' : 'Leave Game?'}
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed px-2">
+                {lang === 'bn'
+                  ? 'আপনার বর্তমান ম্যাচটি সেভ থাকবে। আপনি পরে যেকোনো সময় আবার শুরু করতে পারবেন।'
+                  : 'Your current match will be saved automatically. You can resume anytime.'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  triggerHaptic('light');
+                  setIsExitConfirmModalOpen(false);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition active:scale-95 border border-slate-700 cursor-pointer"
+              >
+                {lang === 'bn' ? 'খেলা চালিয়ে যান' : 'Keep Playing'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  triggerHaptic('heavy');
+                  saveCurrentMatchState();
+                  sounds.stopBgm();
+                  setIsExitConfirmModalOpen(false);
+                  setScreen('TITLE_MENU');
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition active:scale-95 border border-red-400/30 cursor-pointer"
+              >
+                {lang === 'bn' ? 'হ্যাঁ, বের হন' : 'Save & Exit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
