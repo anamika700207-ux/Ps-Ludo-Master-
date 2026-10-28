@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Language, CareerStats, MatchRecord } from '../types/ludo';
 import { TRANSLATIONS, COLOR_CONFIG } from '../utils/ludoConstants';
 import { sounds } from '../utils/soundEffects';
@@ -18,6 +19,7 @@ export const CareerStatsModal: React.FC<CareerStatsModalProps> = ({
   stats,
   onResetStats,
 }) => {
+  const [confirmResetStats, setConfirmResetStats] = useState(false);
   if (!isOpen) return null;
 
   const isBn = lang === 'bn';
@@ -209,6 +211,68 @@ export const CareerStatsModal: React.FC<CareerStatsModalProps> = ({
                       <span className="text-amber-400 font-bold">{m.totalCaptures}</span>
                     </div>
                   </div>
+
+                  {/* All Participating Players Results */}
+                  {m.playersResults && m.playersResults.length > 0 && (
+                    <div className="pt-2 mt-1.5 border-t border-slate-800/80 space-y-1.5">
+                      <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider flex items-center justify-between">
+                        <span>{isBn ? 'খেলোয়াড়দের ফলাফল' : 'All Players Results'}</span>
+                        <span className="text-slate-500 font-normal">
+                          {isBn ? `${m.playersResults.length} জন` : `${m.playersResults.length} Players`}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {m.playersResults.map((pr, pIdx) => {
+                          const pColorCfg = COLOR_CONFIG[pr.color] || COLOR_CONFIG.blue;
+                          return (
+                            <div
+                              key={pIdx}
+                              className={`flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition ${
+                                pr.isWinner
+                                  ? 'bg-amber-500/15 border border-amber-500/40 text-amber-200 font-semibold'
+                                  : 'bg-slate-950/70 border border-slate-800/70 text-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span
+                                  className={`text-[9px] font-bold font-mono px-1.5 py-0.5 rounded shrink-0 ${
+                                    pr.isWinner
+                                      ? 'bg-amber-400 text-slate-950'
+                                      : pr.rank === 2
+                                      ? 'bg-slate-300 text-slate-950'
+                                      : pr.rank === 3
+                                      ? 'bg-amber-700 text-white'
+                                      : 'bg-slate-800 text-slate-400'
+                                  }`}
+                                >
+                                  {pr.isWinner ? '👑 1st' : `${pr.rank}${pr.rank === 2 ? 'nd' : pr.rank === 3 ? 'rd' : 'th'}`}
+                                </span>
+                                <span className={`w-2.5 h-2.5 rounded-full ${pColorCfg.bg} shrink-0 ring-1 ring-white/30`} />
+                                <span className="truncate max-w-[100px] sm:max-w-[130px] font-medium text-white">
+                                  {pr.name}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-[10px] shrink-0 font-mono">
+                                <span className="text-slate-400" title={isBn ? 'চাল' : 'Moves'}>
+                                  🎲 {pr.moves}
+                                </span>
+                                <span className="text-amber-400" title={isBn ? 'কাটা গুটি' : 'Captures'}>
+                                  ⚔️ {pr.captures}
+                                </span>
+                                <span
+                                  className={pr.isWinner ? 'text-emerald-400 font-bold' : 'text-slate-400'}
+                                  title={isBn ? 'ঘরে পৌঁছানো গুটি' : 'Tokens in Home'}
+                                >
+                                  🏠 {pr.tokensHome}/4
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -224,24 +288,39 @@ export const CareerStatsModal: React.FC<CareerStatsModalProps> = ({
         {/* Modal Actions */}
         <div className="relative z-10 flex items-center justify-between gap-3">
           {onResetStats && total > 0 && (
-            <button
-              onClick={() => {
-                if (
-                  window.confirm(
-                    isBn
-                      ? 'আপনি কি নিশ্চিত যে সকল রেকর্ড মুছে ফেলতে চান?'
-                      : 'Are you sure you want to reset all stats?'
-                  )
-                ) {
+            confirmResetStats ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playClick();
+                    onResetStats();
+                    setConfirmResetStats(false);
+                  }}
+                  className="px-2.5 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-500 rounded-xl transition shadow-md active:scale-95"
+                >
+                  {isBn ? 'নিশ্চিত?' : 'Confirm?'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmResetStats(false)}
+                  className="px-2 py-1.5 text-xs text-slate-400 hover:text-white"
+                >
+                  {isBn ? 'বাতিল' : 'Cancel'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
                   sounds.playClick();
-                  onResetStats();
-                }
-              }}
-              className="px-3 py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-950/30 hover:bg-rose-950/50 rounded-xl border border-rose-800/40 transition flex items-center gap-1.5"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>{isBn ? 'রিসেট' : 'Reset'}</span>
-            </button>
+                  setConfirmResetStats(true);
+                }}
+                className="px-3 py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-950/30 hover:bg-rose-950/50 rounded-xl border border-rose-800/40 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{isBn ? 'রিসেট' : 'Reset'}</span>
+              </button>
+            )
           )}
 
           <button

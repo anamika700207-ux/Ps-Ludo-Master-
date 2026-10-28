@@ -119,6 +119,16 @@ export interface SavedGameState {
   savedAt: number;
 }
 
+export interface PlayerMatchResult {
+  name: string;
+  color: PlayerColor;
+  rank: number;
+  moves: number;
+  captures: number;
+  tokensHome: number;
+  isWinner: boolean;
+}
+
 export interface MatchRecord {
   id?: string;
   date: string;
@@ -130,6 +140,7 @@ export interface MatchRecord {
   totalCaptures: number;
   isTeamMode?: boolean;
   winningTeamName?: string;
+  playersResults?: PlayerMatchResult[];
 }
 
 export interface CareerStats {

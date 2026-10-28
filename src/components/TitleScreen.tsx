@@ -36,6 +36,8 @@ interface TitleScreenProps {
   setMyColor: (color: PlayerColor) => void;
   playerName: string;
   setPlayerName: (name: string) => void;
+  playerNames: Record<number, string>;
+  setPlayerNames: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   lang: Language;
   setLang?: (lang: Language) => void;
   soundEnabled?: boolean;
@@ -66,6 +68,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   setMyColor,
   playerName,
   setPlayerName,
+  playerNames,
+  setPlayerNames,
   lang,
   onStartOffline,
   onOpenOnlineModal,
@@ -163,62 +167,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </button>
 
         {/* Center/Right: Gems, Music & Action Controls */}
-        {isPlaying ? (
-          <div className="flex flex-col items-end gap-1.5 shrink-0 z-20">
-            {/* Top row: Gems + PWA + Music Widget */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* Gems Counter Pill */}
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/30 text-cyan-300 font-black text-xs shadow-md">
-                <span>💎</span>
-                <span>50</span>
-              </div>
-
-              {/* PWA Mobile Install Button */}
-              <PWAInstallButton lang={lang} variant="button" />
-
-              {/* Custom Music Widget in Title Screen */}
-              <InGameMusicWidget
-                lang={lang}
-                onOpenSettings={onOpenSettings || (() => {})}
-              />
-            </div>
-
-            {/* Bottom row directly under music player: Settings and Rules */}
-            <div className="flex items-center justify-end gap-1.5 sm:gap-2">
-              {/* Settings Button */}
-              {onOpenSettings && (
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    triggerHaptic('light');
-                    onOpenSettings();
-                  }}
-                  aria-label="Settings"
-                  title={isBn ? 'সেটিংস' : 'Settings'}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-950/90 to-indigo-950/90 border border-purple-500/50 text-purple-200 hover:text-white hover:border-purple-300 hover:bg-purple-900/60 transition shadow-md active:scale-95"
-                >
-                  <Settings className="w-3.5 h-3.5 text-purple-300 animate-[spin_8s_linear_infinite]" />
-                  <span>{isBn ? 'সেটিংস' : 'Settings'}</span>
-                </button>
-              )}
-
-              {/* Rules Button */}
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  onOpenRules();
-                }}
-                aria-label="Rules"
-                title={isBn ? 'খেলার নিয়মাবলী' : 'Game Rules'}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900/90 border border-slate-800 text-amber-300 hover:bg-slate-800 transition shadow-sm active:scale-95"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>{t.rules}</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-col items-end gap-1.5 shrink-0 z-20">
+          {/* Top row: Gems + PWA + Music Widget */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Gems Counter Pill */}
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/30 text-cyan-300 font-black text-xs shadow-md">
               <span>💎</span>
@@ -233,7 +184,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               lang={lang}
               onOpenSettings={onOpenSettings || (() => {})}
             />
+          </div>
 
+          {/* Bottom row directly under music player: Settings and Rules */}
+          <div className="flex items-center justify-end gap-1.5 sm:gap-2">
             {/* Settings Button */}
             {onOpenSettings && (
               <button
@@ -244,10 +198,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 }}
                 aria-label="Settings"
                 title={isBn ? 'সেটিংস' : 'Settings'}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-950/90 to-indigo-950/90 border border-purple-500/50 text-purple-200 hover:text-white hover:border-purple-300 hover:bg-purple-900/60 transition shadow-md active:scale-95"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-950/90 to-indigo-950/90 border border-purple-500/50 text-purple-200 hover:text-white hover:border-purple-300 hover:bg-purple-900/60 transition shadow-md active:scale-95 cursor-pointer"
               >
                 <Settings className="w-3.5 h-3.5 text-purple-300 animate-[spin_8s_linear_infinite]" />
-                <span className="hidden sm:inline">{isBn ? 'সেটিংস' : 'Settings'}</span>
+                <span>{isBn ? 'সেটিংস' : 'Settings'}</span>
               </button>
             )}
 
@@ -259,13 +213,13 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               }}
               aria-label="Rules"
               title={isBn ? 'খেলার নিয়মাবলী' : 'Game Rules'}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900/90 border border-slate-800 text-amber-300 hover:bg-slate-800 transition shadow-sm active:scale-95"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900/90 border border-slate-800 text-amber-300 hover:bg-slate-800 transition shadow-sm active:scale-95 cursor-pointer"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t.rules}</span>
+              <span>{t.rules}</span>
             </button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* MAIN CENTERPIECE: Crown & PS LUDO MASTER Graphic */}
@@ -558,21 +512,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
             {/* Modal Body / Settings */}
             <div className="space-y-4">
-              {/* 1. Player Name Input */}
-              <div>
-                <label className="block text-xs font-bold text-purple-200 mb-1.5">
-                  {t.enterYourName}
-                </label>
-                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value.slice(0, 16))}
-                  placeholder="Player 1"
-                  className="w-full px-4 py-2.5 rounded-xl bg-purple-950/60 border border-purple-400/40 text-white placeholder-purple-300/40 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
-                />
-              </div>
-
-              {/* 2. Player Count Selector */}
+              {/* 1. Player Count Selector */}
               <div>
                 <label className="block text-xs font-bold text-purple-200 mb-1.5">
                   {t.playersCount}
@@ -593,7 +533,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                             setIsTeamMode(false);
                           }
                         }}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex flex-col items-center justify-center gap-1 ${
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
                           isSelected
                             ? 'bg-gradient-to-r from-amber-500 to-yellow-500 border-amber-300 text-slate-950 shadow-lg scale-102 ring-2 ring-amber-300/40'
                             : 'bg-purple-950/40 border-purple-500/30 text-purple-200 hover:text-white hover:bg-purple-900/40'
@@ -606,6 +546,79 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                           {count === 2 ? t.twoPlayers : count === 3 ? t.threePlayers : t.fourPlayers}
                         </span>
                       </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Custom Player Names (Dynamically shows inputs for 2, 3, or 4 players) */}
+              <div>
+                <label className="block text-xs font-bold text-purple-200 mb-1.5">
+                  {isBn
+                    ? `খেলোয়াড়দের নাম নির্ধারণ করুন (${playerCount} জন):`
+                    : `Enter Players Name (${playerCount} Players):`}
+                </label>
+                <div className="space-y-2">
+                  {Array.from({ length: playerCount }, (_, idx) => idx + 1).map((num) => {
+                    const colorForNum: PlayerColor =
+                      playerCount === 2
+                        ? num === 1
+                          ? 'blue'
+                          : 'green'
+                        : playerCount === 3
+                        ? num === 1
+                          ? 'blue'
+                          : num === 2
+                          ? 'red'
+                          : 'green'
+                        : num === 1
+                        ? 'blue'
+                        : num === 2
+                        ? 'red'
+                        : num === 3
+                        ? 'green'
+                        : 'yellow';
+
+                    const colorData = COLOR_CONFIG[colorForNum];
+                    const isBotPlayer = setupModalMode === 'offline_bot' && num > 1;
+
+                    return (
+                      <div
+                        key={num}
+                        className="flex items-center gap-2 bg-purple-950/50 p-2 sm:p-2.5 rounded-xl border border-purple-400/25"
+                      >
+                        <div className="flex items-center gap-1.5 w-24 sm:w-28 shrink-0 text-xs font-bold text-purple-200">
+                          <span
+                            className={`w-3.5 h-3.5 rounded-full ${colorData.bg} ring-2 ring-white/30 shadow-sm shrink-0`}
+                          />
+                          <span className="truncate">
+                            {isBn ? `খেলোয়াড় ${num}` : `Player ${num}`}
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          value={
+                            playerNames[num] !== undefined
+                              ? playerNames[num]
+                              : num === 1
+                              ? playerName || 'Player 1'
+                              : isBotPlayer
+                              ? `Bot (${colorData.name})`
+                              : `Player ${num}`
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value.slice(0, 16);
+                            setPlayerNames((prev) => ({ ...prev, [num]: val }));
+                            if (num === 1) {
+                              setPlayerName(val);
+                            }
+                          }}
+                          placeholder={
+                            isBotPlayer ? `Bot (${colorData.name})` : `Player ${num}`
+                          }
+                          className="flex-1 px-3 py-2 rounded-lg bg-purple-900/60 border border-purple-400/30 text-white placeholder-purple-300/40 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+                        />
+                      </div>
                     );
                   })}
                 </div>

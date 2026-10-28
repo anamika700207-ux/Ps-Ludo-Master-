@@ -18,6 +18,7 @@ import {
   TeamId,
   CareerStats,
   MatchRecord,
+  PlayerMatchResult,
   SavedGameState,
 } from './types/ludo';
 import {
@@ -73,6 +74,25 @@ export default function App() {
   const [winningTeamId, setWinningTeamId] = useState<TeamId | null>(null);
   const [myColor, setMyColor] = useState<PlayerColor>('blue');
   const [playerName, setPlayerName] = useState('Player 1');
+  const [playerNames, setPlayerNames] = useState<Record<number, string>>(() => {
+    try {
+      const saved = localStorage.getItem('ps_ludo_all_player_names_v1');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      1: 'Player 1',
+      2: 'Player 2',
+      3: 'Player 3',
+      4: 'Player 4',
+    };
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ps_ludo_all_player_names_v1', JSON.stringify(playerNames));
+    } catch {}
+  }, [playerNames]);
+
   const [lang, setLang] = useState<Language>(() => {
     try {
       const saved = localStorage.getItem('ps_ludo_lang_v1');
@@ -411,14 +431,19 @@ export default function App() {
       yellow: 'Player 4',
     };
 
-    const newPlayers: Player[] = selectedColors.map((color) => {
-      const isUser = color === myColor;
+    const newPlayers: Player[] = selectedColors.map((color, index) => {
+      const playerIndex = index + 1;
+      const customName = playerNames[playerIndex];
+      const isUser = mode === 'offline_bot' ? color === myColor : true;
       const isBotPlayer = mode === 'offline_bot' ? !isUser : false;
-      const name = isUser
-        ? playerName || defaultNames[color]
-        : mode === 'offline_bot'
-        ? `Bot (${COLOR_CONFIG[color].name})`
-        : defaultNames[color];
+      const name =
+        customName && customName.trim()
+          ? customName.trim()
+          : isUser
+          ? playerName || defaultNames[color]
+          : isBotPlayer
+          ? `Bot (${COLOR_CONFIG[color].name})`
+          : defaultNames[color];
 
       return {
         id: `p_${color}`,
@@ -480,7 +505,7 @@ export default function App() {
       },
     });
     setIsSplashActive(true);
-  }, [playerCount, myColor, mode, playerName, lang, isTeamMode, bgmEnabled, soundEnabled]);
+  }, [playerCount, myColor, mode, playerName, playerNames, lang, isTeamMode, bgmEnabled, soundEnabled]);
 
   // Connect WebSocket for Online Mode
   const connectWebSocket = useCallback(() => {
@@ -706,6 +731,33 @@ export default function App() {
             : teamObj.nameEn
           : topWinnerPlayer?.name || COLOR_CONFIG[winningColors[0]]?.name || 'Winner';
 
+      // Build results for all participating players
+      const playersResults: PlayerMatchResult[] = players
+        .map((p) => {
+          const isWinner = winningColors.includes(p.color);
+          const winnerRank = winningColors.indexOf(p.color) + 1;
+          const rank = isWinner ? winnerRank : winningColors.length + 1;
+          const tokensHome = p.tokens.filter((t) => t.step === 56).length;
+          const moves = playerMoves[p.color] || 0;
+          const captures = playerCaptures[p.color] || 0;
+
+          return {
+            name: p.name,
+            color: p.color,
+            rank,
+            moves,
+            captures,
+            tokensHome,
+            isWinner,
+          };
+        })
+        .sort((a, b) => {
+          if (a.isWinner && !b.isWinner) return -1;
+          if (!a.isWinner && b.isWinner) return 1;
+          if (a.rank !== b.rank) return a.rank - b.rank;
+          return b.tokensHome - a.tokensHome;
+        });
+
       const newMatchRecord: MatchRecord = {
         id: `match_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         date: new Date().toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', {
@@ -722,6 +774,7 @@ export default function App() {
         totalCaptures,
         isTeamMode,
         winningTeamName: teamObj ? (lang === 'bn' ? teamObj.nameBn : teamObj.nameEn) : undefined,
+        playersResults,
       };
 
       setCareerStats((prev) => {
@@ -1315,6 +1368,8 @@ export default function App() {
           setMyColor={setMyColor}
           playerName={playerName}
           setPlayerName={setPlayerName}
+          playerNames={playerNames}
+          setPlayerNames={setPlayerNames}
           lang={lang}
           setLang={handleSetLang}
           soundEnabled={soundEnabled}

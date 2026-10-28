@@ -226,11 +226,14 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                       {idx + 1}
                     </span>
                     <span className={`w-3 h-3 rounded-full ${cfg.bg} ring-1 ring-white/30`} />
-                    <span className="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-[160px]">
+                    <span className="text-xs font-bold text-white truncate max-w-[110px] sm:max-w-[140px]">
                       {p?.name}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs font-bold text-amber-300">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                    <span className="text-[10px] text-amber-300/80 font-mono bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30">
+                      {p?.tokensHome || p?.tokens?.filter((t) => t.step === 56).length || 4}/4 🏠
+                    </span>
                     <span>{medalEmoji}</span>
                     <span>{rankTitle}</span>
                   </div>
@@ -250,13 +253,18 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                       ✕
                     </span>
                     <span className={`w-3 h-3 rounded-full ${cfg.bg}`} />
-                    <span className="text-xs font-medium text-slate-300 truncate max-w-[130px] sm:max-w-[160px]">
+                    <span className="text-xs font-medium text-slate-300 truncate max-w-[110px] sm:max-w-[140px]">
                       {p.name}
                     </span>
                   </div>
-                  <span className="text-[11px] font-bold text-red-400 bg-red-950/60 px-2 py-0.5 rounded border border-red-800/40">
-                    {t.defeated} ❌
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400 font-mono bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                      {p.tokensHome || p.tokens?.filter((t) => t.step === 56).length || 0}/4 🏠
+                    </span>
+                    <span className="text-[11px] font-bold text-red-400 bg-red-950/60 px-2 py-0.5 rounded border border-red-800/40">
+                      {t.defeated} ❌
+                    </span>
+                  </div>
                 </div>
               );
             })}
