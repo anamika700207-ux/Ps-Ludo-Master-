@@ -303,8 +303,12 @@ async function startServer() {
             if (!player || player.color !== room.currentTurnColor) return;
             if (room.hasRolled) return;
 
-            // Roll 1 to 6
-            const dice = Math.floor(Math.random() * 6) + 1;
+            // Roll 1 to 6 (User Rule 7: max two 6s followed by at most 5, never 3 sixes)
+            const dice =
+              room.consecutiveSixes >= 2
+                ? Math.floor(Math.random() * 5) + 1 // Capped to 1..5, max 5, no 6
+                : Math.floor(Math.random() * 6) + 1;
+
             room.diceValue = dice;
             room.hasRolled = true;
 
@@ -312,18 +316,6 @@ async function startServer() {
               room.consecutiveSixes++;
             } else {
               room.consecutiveSixes = 0;
-            }
-
-            // Check 3 consecutive sixes rule
-            if (room.consecutiveSixes === 3) {
-              broadcastToRoom(currentRoomId, {
-                type: 'consecutive_sixes_forfeit',
-                playerColor: room.currentTurnColor,
-                dice,
-              });
-              advanceTurn(room);
-              broadcastToRoom(currentRoomId, { type: 'room_state', room: sanitizeRoom(room) });
-              return;
             }
 
             const currentTokens = room.tokens[room.currentTurnColor];
@@ -387,23 +379,43 @@ async function startServer() {
               const isSafe = SAFE_TRACK_INDICES.includes(myTrackIdx);
 
               if (!isSafe) {
-                // Check all opponent tokens
-                Object.entries(room.tokens).forEach(([oppColorStr, oppTokens]) => {
-                  const oppColor = oppColorStr as PlayerColor;
-                  if (oppColor === color) return;
-                  if (room.isTeamMode && isSameTeam(oppColor, color)) return; // Friendly teammate: safe!
-
-                  oppTokens.forEach((oppToken) => {
-                    if (oppToken.step >= 0 && oppToken.step <= 50) {
-                      const oppTrackIdx = (COLOR_START_INDEX[oppColor] + oppToken.step) % 52;
-                      if (oppTrackIdx === myTrackIdx) {
-                        // Capture!
-                        oppToken.step = -1;
-                        capturedInfo = { color: oppColor, tokenId: oppToken.id };
+                // User requirement 3: In 2v2 Team Mode, if opposing team has 2+ tokens on this cell,
+                // it forms an immune fortress / blockade: an opponent's single token cannot capture them!
+                let isProtectedTeamFortress = false;
+                if (room.isTeamMode) {
+                  let oppCount = 0;
+                  Object.entries(room.tokens).forEach(([oppColorStr, oppTokens]) => {
+                    const oppColor = oppColorStr as PlayerColor;
+                    if (isSameTeam(oppColor, color)) return;
+                    oppTokens.forEach((t) => {
+                      if (t.step >= 0 && t.step <= 50) {
+                        const idx = (COLOR_START_INDEX[oppColor] + t.step) % 52;
+                        if (idx === myTrackIdx) oppCount++;
                       }
-                    }
+                    });
                   });
-                });
+                  if (oppCount >= 2) isProtectedTeamFortress = true;
+                }
+
+                if (!isProtectedTeamFortress) {
+                  // Check all opponent tokens
+                  Object.entries(room.tokens).forEach(([oppColorStr, oppTokens]) => {
+                    const oppColor = oppColorStr as PlayerColor;
+                    if (oppColor === color) return;
+                    if (room.isTeamMode && isSameTeam(oppColor, color)) return; // Friendly teammate: safe!
+
+                    oppTokens.forEach((oppToken) => {
+                      if (oppToken.step >= 0 && oppToken.step <= 50) {
+                        const oppTrackIdx = (COLOR_START_INDEX[oppColor] + oppToken.step) % 52;
+                        if (oppTrackIdx === myTrackIdx) {
+                          // Capture!
+                          oppToken.step = -1;
+                          capturedInfo = { color: oppColor, tokenId: oppToken.id };
+                        }
+                      }
+                    });
+                  });
+                }
               }
             }
 

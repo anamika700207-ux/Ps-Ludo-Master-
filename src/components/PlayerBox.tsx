@@ -112,15 +112,20 @@ export const PlayerBox: React.FC<PlayerBoxProps> = ({
         {orientation === 'left' ? (
           <>
             {/* Left Compartment: Avatar / PinPawn */}
-            <div className="w-11 h-12 sm:w-14 sm:h-15 rounded-lg sm:rounded-xl bg-gradient-to-b from-[#0058b8] to-[#003e85] border border-[#268eff] flex items-center justify-center shadow-inner relative overflow-hidden">
-              <PinPawn color={player.color} size={24} />
+            <div className="w-11 h-12 sm:w-14 sm:h-15 rounded-lg sm:rounded-xl bg-gradient-to-b from-[#0058b8] to-[#003e85] border border-[#268eff] flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
               {isTeamMode && (
-                <div className="absolute top-0 inset-x-0 bg-black/75 py-0.5 px-0.5 text-center">
-                  <span className="text-[7.5px] sm:text-[9px] font-black text-amber-300 whitespace-nowrap">
+                <div className="absolute top-0 inset-x-0 bg-black/75 py-0.2 px-0.5 text-center z-10">
+                  <span className="text-[7px] sm:text-[8px] font-black text-amber-300 whitespace-nowrap">
                     {player.color === 'red' || player.color === 'yellow' ? 'টিম ১ 🔴🟡' : 'টিম ২ 🔵🟢'}
                   </span>
                 </div>
               )}
+              <PinPawn color={player.color} size={22} />
+              <div className="absolute bottom-0 inset-x-0 bg-black/65 py-0.2 px-0.5 text-center">
+                <span className="text-[7.5px] sm:text-[8.5px] font-bold text-white block truncate leading-tight drop-shadow">
+                  {playerName || player.name}
+                </span>
+              </div>
             </div>
 
             {/* Right Compartment: Soft Pink/Cream Dice Tray */}
@@ -148,15 +153,20 @@ export const PlayerBox: React.FC<PlayerBoxProps> = ({
             </div>
 
             {/* Right Compartment: Avatar / PinPawn */}
-            <div className="w-11 h-12 sm:w-14 sm:h-15 rounded-lg sm:rounded-xl bg-gradient-to-b from-[#0058b8] to-[#003e85] border border-[#268eff] flex items-center justify-center shadow-inner relative overflow-hidden">
-              <PinPawn color={player.color} size={24} />
+            <div className="w-11 h-12 sm:w-14 sm:h-15 rounded-lg sm:rounded-xl bg-gradient-to-b from-[#0058b8] to-[#003e85] border border-[#268eff] flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
               {isTeamMode && (
-                <div className="absolute top-0 inset-x-0 bg-black/75 py-0.5 px-0.5 text-center">
-                  <span className="text-[7.5px] sm:text-[9px] font-black text-sky-300 whitespace-nowrap">
+                <div className="absolute top-0 inset-x-0 bg-black/75 py-0.2 px-0.5 text-center z-10">
+                  <span className="text-[7px] sm:text-[8px] font-black text-sky-300 whitespace-nowrap">
                     {player.color === 'red' || player.color === 'yellow' ? 'টিম ১ 🔴🟡' : 'টিম ২ 🔵🟢'}
                   </span>
                 </div>
               )}
+              <PinPawn color={player.color} size={22} />
+              <div className="absolute bottom-0 inset-x-0 bg-black/65 py-0.2 px-0.5 text-center">
+                <span className="text-[7.5px] sm:text-[8.5px] font-bold text-white block truncate leading-tight drop-shadow">
+                  {playerName || player.name}
+                </span>
+              </div>
             </div>
           </>
         )}

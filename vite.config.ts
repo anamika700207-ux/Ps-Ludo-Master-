@@ -14,9 +14,9 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: '/',
-          name: 'Ps Ludo Master',
-          short_name: 'Ludo Master',
-          description: 'Ps Ludo Master - অফলাইন ও অনলাইন রিয়েল-টাইম লুডু গেম। ২ বনাম ২ কোনাকুনি টিম মোড ও আধুনিক বোর্ড গেম।',
+          name: 'PS Ludo Master',
+          short_name: 'PS Ludo Master',
+          description: 'PS Ludo Master - অফলাইন ও অনলাইন রিয়েল-টাইম লুডু গেম। ২ বনাম ২ কোনাকুনি টিম মোড ও আধুনিক বোর্ড গেম।',
           theme_color: '#090d16',
           background_color: '#090d16',
           display: 'standalone',

@@ -81,19 +81,35 @@ export function pickBestBotMove(
         const isTargetSafe = SAFE_TRACK_INDICES.includes(targetTrackIdx);
 
         if (!isTargetSafe) {
-          allPlayers.forEach((opp) => {
-            if (opp.color === botColor) return;
-            if (isTeamMode && isSameTeam(botColor, opp.color)) return; // Friendly teammate: don't capture
-
-            opp.tokens.forEach((oppToken) => {
-              if (oppToken.step >= 0 && oppToken.step <= 50) {
-                const oppTrackIdx = (COLOR_START_INDEX[opp.color] + oppToken.step) % 52;
-                if (oppTrackIdx === targetTrackIdx) {
-                  score += 650; // Huge capture bonus!
+          // Check if opposing team forms an immune fortress (2+ tokens on the cell)
+          let oppTokensOnCell = 0;
+          if (isTeamMode) {
+            allPlayers.forEach((opp) => {
+              if (opp.color === botColor || isSameTeam(botColor, opp.color)) return;
+              opp.tokens.forEach((t) => {
+                if (t.step >= 0 && t.step <= 50) {
+                  const oppIdx = (COLOR_START_INDEX[opp.color] + t.step) % 52;
+                  if (oppIdx === targetTrackIdx) oppTokensOnCell++;
                 }
-              }
+              });
             });
-          });
+          }
+
+          if (!isTeamMode || oppTokensOnCell < 2) {
+            allPlayers.forEach((opp) => {
+              if (opp.color === botColor) return;
+              if (isTeamMode && isSameTeam(botColor, opp.color)) return; // Friendly teammate: don't capture
+
+              opp.tokens.forEach((oppToken) => {
+                if (oppToken.step >= 0 && oppToken.step <= 50) {
+                  const oppTrackIdx = (COLOR_START_INDEX[opp.color] + oppToken.step) % 52;
+                  if (oppTrackIdx === targetTrackIdx) {
+                    score += 650; // Huge capture bonus!
+                  }
+                }
+              });
+            });
+          }
         }
       }
 

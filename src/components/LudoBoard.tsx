@@ -273,6 +273,46 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         ));
       })}
 
+      {/* 4. Player Custom Names Displayed on Each Corner House ("প্লেয়ার এর ঘর অনুযায়ী নিচে ছোট্ট করে লেখা") */}
+      {players.map((p) => {
+        const isRed = p.color === 'red';
+        const isGreen = p.color === 'green';
+        const isBlue = p.color === 'blue';
+        const isYellow = p.color === 'yellow';
+
+        const leftPos = isRed || isBlue ? '20%' : '80%';
+        const topPos = isRed || isGreen ? '34.8%' : '94.8%';
+
+        const badgeBorder =
+          isRed
+            ? 'border-red-300/70 bg-red-950/90 text-red-100 shadow-red-900/40'
+            : isGreen
+            ? 'border-emerald-300/70 bg-emerald-950/90 text-emerald-100 shadow-emerald-900/40'
+            : isYellow
+            ? 'border-amber-300/70 bg-amber-950/90 text-amber-100 shadow-amber-900/40'
+            : 'border-blue-300/70 bg-blue-950/90 text-blue-100 shadow-blue-900/40';
+
+        return (
+          <div
+            key={`house-name-${p.color}`}
+            className="absolute z-25 pointer-events-none flex flex-col items-center justify-center max-w-[34%]"
+            style={{
+              left: leftPos,
+              top: topPos,
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            <div
+              className={`px-2 py-0.5 rounded-full border shadow-md flex items-center justify-center gap-1 ${badgeBorder} backdrop-blur-sm max-w-full`}
+            >
+              <span className="text-[9px] sm:text-[10.5px] font-black truncate max-w-[85px] sm:max-w-[105px] tracking-tight leading-none drop-shadow">
+                {p.name}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+
       {/* --- CENTER 3x3 FINISH GOAL (Classic 4 Triangles matching reference) --- */}
       <div className="absolute top-[40%] left-[40%] w-[20%] h-[20%] border-2 border-[#17345b] overflow-hidden bg-white">
         <svg viewBox="0 0 100 100" className="w-full h-full">

@@ -818,7 +818,12 @@ export default function App() {
     setDiceValue(null);
 
     setTimeout(() => {
-      const rolled = Math.floor(Math.random() * 6) + 1;
+      // User Rule 7: In a single turn, a player can roll at most two 6s followed by at most 5 (never three 6s!)
+      const rolled =
+        consecutiveSixes >= 2
+          ? Math.floor(Math.random() * 5) + 1 // Capped to 1..5, max 5, no 6
+          : Math.floor(Math.random() * 6) + 1;
+
       setDiceValue(rolled);
       setIsRolling(false);
       setHasRolled(true);
@@ -826,20 +831,6 @@ export default function App() {
 
       const nextSixes = rolled === 6 ? consecutiveSixes + 1 : 0;
       setConsecutiveSixes(nextSixes);
-
-      // Check 3 consecutive 6s
-      if (nextSixes === 3) {
-        sounds.playCaptureSmash();
-        setStatusMessage(
-          lang === 'bn'
-            ? 'টানা ৩টি ছক্কা! চাল বাতিল হলো।'
-            : 'Three consecutive 6s! Turn forfeited.'
-        );
-        setTimeout(() => {
-          advanceOfflineTurn(turnOrder, currentTurnColor, winners);
-        }, 1200);
-        return;
-      }
 
       const currentPlayer = players.find((p) => p.color === currentTurnColor);
       if (!currentPlayer) return;
@@ -980,34 +971,69 @@ export default function App() {
         const isSafe = SAFE_TRACK_INDICES.includes(myTrackIdx);
 
         if (!isSafe) {
-          currentUpdatedPlayers = players.map((p) => {
-            if (p.color === moverColor) {
+          // User requirement 3: In 2v2 Team Mode, if the opposing team has 2 or more tokens on this cell,
+          // they form an unbreakable fortress / blockade: an opponent's single token CANNOT capture them!
+          let isProtectedTeamFortress = false;
+          if (isTeamMode) {
+            let oppTokensOnCellCount = 0;
+            players.forEach((p) => {
+              if (p.color === moverColor || isSameTeam(moverColor, p.color)) return;
+              p.tokens.forEach((t) => {
+                if (t.step >= 0 && t.step <= 50) {
+                  const oppTrackIdx = (COLOR_START_INDEX[p.color] + t.step) % 52;
+                  if (oppTrackIdx === myTrackIdx) {
+                    oppTokensOnCellCount++;
+                  }
+                }
+              });
+            });
+
+            if (oppTokensOnCellCount >= 2) {
+              isProtectedTeamFortress = true;
+            }
+          }
+
+          if (!isProtectedTeamFortress) {
+            currentUpdatedPlayers = players.map((p) => {
+              if (p.color === moverColor) {
+                const updatedTokens = p.tokens.map((t) =>
+                  t.id === tokenId ? { ...t, step: nextStep } : t
+                );
+                const tokensHome = updatedTokens.filter((t) => t.step === 56).length;
+                return { ...p, tokens: updatedTokens, tokensHome };
+              }
+
+              // IN 2v2 TEAM MODE: Friendly teammates CANNOT be captured! Friendly coexistence!
+              if (isTeamMode && isSameTeam(moverColor, p.color)) {
+                return p; // Friendly teammate: untouched!
+              }
+
+              const updatedTokens = p.tokens.map((oppToken) => {
+                if (oppToken.step >= 0 && oppToken.step <= 50) {
+                  const oppTrackIdx = (COLOR_START_INDEX[p.color] + oppToken.step) % 52;
+                  if (oppTrackIdx === myTrackIdx) {
+                    capturedInfo = { color: p.color, tokenId: oppToken.id };
+                    triggerHaptic('capture');
+                    sounds.playCaptureSmash();
+                    return { ...oppToken, step: -1 };
+                  }
+                }
+                return oppToken;
+              });
+              return { ...p, tokens: updatedTokens };
+            });
+          } else {
+            // Protected team fortress: Coexist safely on cell without capture!
+            currentUpdatedPlayers = players.map((p) => {
+              if (p.color !== moverColor) return p;
               const updatedTokens = p.tokens.map((t) =>
                 t.id === tokenId ? { ...t, step: nextStep } : t
               );
               const tokensHome = updatedTokens.filter((t) => t.step === 56).length;
               return { ...p, tokens: updatedTokens, tokensHome };
-            }
-
-            // IN 2v2 TEAM MODE: Friendly teammates CANNOT be captured! Friendly coexistence!
-            if (isTeamMode && isSameTeam(moverColor, p.color)) {
-              return p; // Friendly teammate: untouched!
-            }
-
-            const updatedTokens = p.tokens.map((oppToken) => {
-              if (oppToken.step >= 0 && oppToken.step <= 50) {
-                const oppTrackIdx = (COLOR_START_INDEX[p.color] + oppToken.step) % 52;
-                if (oppTrackIdx === myTrackIdx) {
-                  capturedInfo = { color: p.color, tokenId: oppToken.id };
-                  triggerHaptic('capture');
-                  sounds.playCaptureSmash();
-                  return { ...oppToken, step: -1 };
-                }
-              }
-              return oppToken;
             });
-            return { ...p, tokens: updatedTokens };
-          });
+            sounds.playSafeChime();
+          }
         } else {
           currentUpdatedPlayers = players.map((p) => {
             if (p.color !== moverColor) return p;
@@ -1487,7 +1513,7 @@ export default function App() {
                   canRoll={canRollNow && currentTurnColor === 'red'}
                   onRoll={handleRoll}
                   orientation="left"
-                  playerName="Player 2"
+                  playerName={players.find((p) => p.color === 'red')?.name || 'Player 2'}
                   isTeamMode={isTeamMode}
                 />
               ) : <div />}
@@ -1501,7 +1527,7 @@ export default function App() {
                   canRoll={canRollNow && currentTurnColor === 'green'}
                   onRoll={handleRoll}
                   orientation="right"
-                  playerName="Player 3"
+                  playerName={players.find((p) => p.color === 'green')?.name || 'Player 3'}
                   isTeamMode={isTeamMode}
                 />
               ) : <div />}
@@ -1533,7 +1559,7 @@ export default function App() {
                   canRoll={canRollNow && currentTurnColor === 'blue'}
                   onRoll={handleRoll}
                   orientation="left"
-                  playerName="Player 1"
+                  playerName={players.find((p) => p.color === 'blue')?.name || 'Player 1'}
                   isTeamMode={isTeamMode}
                 />
               ) : <div />}
@@ -1547,7 +1573,7 @@ export default function App() {
                   canRoll={canRollNow && currentTurnColor === 'yellow'}
                   onRoll={handleRoll}
                   orientation="right"
-                  playerName="Player 4"
+                  playerName={players.find((p) => p.color === 'yellow')?.name || 'Player 4'}
                   isTeamMode={isTeamMode}
                 />
               ) : <div />}

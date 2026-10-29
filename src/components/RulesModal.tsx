@@ -92,6 +92,18 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, lang })
               <p className="text-xs text-slate-300 leading-relaxed">{t.rule6}</p>
             </div>
           </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+            <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+              7
+            </span>
+            <div>
+              <div className="text-xs font-bold text-amber-300 mb-0.5">
+                {lang === 'bn' ? 'সর্বোচ্চ দানের নিয়ম (দুই ছয় পাঁচ)' : 'Maximum Roll Rule (Two 6s & Max 5)'}
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">{t.rule7}</p>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
